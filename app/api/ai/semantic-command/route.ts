@@ -56,6 +56,7 @@ export async function POST(req: Request) {
           priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
           overdue: z.boolean().optional().describe("If true, fetches tasks where dueDate is past the current date")
         }),
+        // @ts-ignore
         execute: async (args: any) => {
           const { isCompleted, priority, overdue } = args;
           const where: any = { userId };
@@ -74,6 +75,7 @@ export async function POST(req: Request) {
           startDate: z.string().describe("ISO date string for start"),
           endDate: z.string().describe("ISO date string for end")
         }),
+        // @ts-ignore
         execute: async (args: any) => {
           const { startDate, endDate } = args;
           const events = await prisma.calendarEvent.findMany({
@@ -90,6 +92,7 @@ export async function POST(req: Request) {
       getGoals: tool({
         description: "Get the user's active goals.",
         parameters: z.object({}),
+        // @ts-ignore
         execute: async (args: any) => {
           const goals = await prisma.goal.findMany({ where: { userId, status: "ACTIVE" }, take: 10 });
           return goals.map(g => ({ id: g.id, title: g.title, progress: g.progress }));
@@ -107,6 +110,7 @@ export async function POST(req: Request) {
             payload: z.any().describe("The data payload for the operation (e.g. { title, priority } for CREATE_TASK or { id } for DELETE_TASK)")
           })).optional().describe("Array of database operations to propose to the user.")
         }),
+        // @ts-ignore
         execute: async (args: any) => {
           // This tells the AI that the response was successfully queued
           return { success: true, message: "Response sent to user. Stop generating." };
