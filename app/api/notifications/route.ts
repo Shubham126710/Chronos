@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]/route";
 
 export async function GET() {
   try {
-    const user = await prisma.user.findFirst();
-    if (!user) return NextResponse.json({ success: false }, { status: 404 });
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) return NextResponse.json({ success: false }, { status: 401 });
+    const userId = (session.user as any).id;
 
     const notifications = await prisma.notification.findMany({
-      where: { userId: user.id },
+      where: { userId: userId },
       orderBy: { createdAt: "desc" },
       take: 20,
     });
@@ -29,14 +32,16 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) return NextResponse.json({ success: false }, { status: 401 });
+    const userId = (session.user as any).id;
+
     const body = await req.json();
     const { action, notificationId, title, message, type = "INFO" } = body;
-    const user = await prisma.user.findFirst();
-    if (!user) return NextResponse.json({ success: false }, { status: 404 });
 
     if (action === "mark-read" && notificationId) {
-      await prisma.notification.update({
-        where: { id: notificationId },
+      await prisma.notification.updateMany({
+        where: { id: notificationId, userId: userId },
         data: { isRead: true },
       });
       return NextResponse.json({ success: true, message: "Marked as read" });
@@ -44,7 +49,7 @@ export async function POST(req: Request) {
 
     if (action === "mark-all-read") {
       await prisma.notification.updateMany({
-        where: { userId: user.id, isRead: false },
+        where: { userId: userId, isRead: false },
         data: { isRead: true },
       });
       return NextResponse.json({ success: true, message: "All marked as read" });
@@ -53,7 +58,7 @@ export async function POST(req: Request) {
     if (action === "create" && title && message) {
       const newNotif = await prisma.notification.create({
         data: {
-          userId: user.id,
+          userId: userId,
           title,
           message,
           type,

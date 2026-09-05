@@ -3,7 +3,7 @@
 import React from "react";
 import { LogOut } from "lucide-react";
 
-export type TabType = "dashboard" | "tasks" | "calendar" | "goals" | "habits" | "projects" | "notes" | "analytics";
+export type TabType = "dashboard" | "tasks" | "calendar" | "goals" | "habits" | "projects" | "notes" | "analytics" | "integrations";
 
 export interface SidebarProps {
   activeTab: TabType;
@@ -29,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: "projects", label: "PROJECTS" },
     { id: "notes", label: "NOTES" },
     { id: "analytics", label: "ANALYTICS" },
+    { id: "integrations", label: "INTEGRATIONS" },
   ];
 
   return (

@@ -3,16 +3,17 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model User {
-  id                 String   @id @default(uuid())
-  email              String   @unique
-  name               String
-  passwordHash       String?
-  avatar             String?
+  id                     String   @id @default(uuid())
+  email                  String   @unique
+  name                   String
+  passwordHash           String?
+  avatar                 String?
   productivityScore      Int      @default(94)
   habitStreak            Int      @default(14)
   focusHoursThisWeek     Float    @default(28.5)
@@ -21,30 +22,32 @@ model User {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
-  layouts            DashboardLayout[]
-  integrations       Integration[]
-  notifications      Notification[]
-  aiConversations    AIConversation[]
-  focusSessions      FocusSession[]
-  pomodoroSessions   PomodoroSession[]
-  activityLogs       ActivityLog[]
-  tasks              Task[]
-  goals              Goal[]
-  habits             Habit[]
-  notes              Note[]
-  projects           Project[]
-  calendarEvents     CalendarEvent[]
+  layouts          DashboardLayout[]
+  integrations     Integration[]
+  notifications    Notification[]
+  aiConversations  AIConversation[]
+  focusSessions    FocusSession[]
+  pomodoroSessions PomodoroSession[]
+  activityLogs     ActivityLog[]
+  tasks            Task[]
+  goals            Goal[]
+  habits           Habit[]
+  notes            Note[]
+  projects         Project[]
+  calendarEvents   CalendarEvent[]
 }
 
 model DashboardLayout {
-  id          String            @id @default(uuid())
-  userId      String
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String            @default("Default Workspace")
-  isDefault   Boolean           @default(false)
-  widgets     DashboardWidget[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id        String            @id @default(uuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String            @default("Default Workspace")
+  isDefault Boolean           @default(false)
+  widgets   DashboardWidget[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@index([userId])
 }
 
 model DashboardWidget {
@@ -64,6 +67,8 @@ model DashboardWidget {
   preferences     WidgetPreference[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+
+  @@index([layoutId])
 }
 
 model WidgetPreference {
@@ -104,6 +109,8 @@ model Notification {
   isRead    Boolean  @default(false)
   link      String?
   createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
 }
 
 model AIConversation {
@@ -114,6 +121,8 @@ model AIConversation {
   messages  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model FocusSession {
@@ -124,6 +133,8 @@ model FocusSession {
   taskName        String?
   category        String   @default("DEEP_WORK")
   completedAt     DateTime @default(now())
+
+  @@index([userId])
 }
 
 model PomodoroSession {
@@ -134,6 +145,8 @@ model PomodoroSession {
   breakMinutes    Int      @default(5)
   completedCycles Int      @default(1)
   createdAt       DateTime @default(now())
+
+  @@index([userId])
 }
 
 model WeatherCache {
@@ -151,6 +164,8 @@ model ActivityLog {
   module    String
   metadata  String?
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Task {
@@ -166,39 +181,46 @@ model Task {
   isRecurring      Boolean   @default(false)
   recurringRule    String?
   labels           String?
-  
-  projectId        String?
-  project          Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  
-  goalId           String?
-  goal             Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
-  
-  dependsOnId      String?
-  dependsOn        Task?     @relation("TaskDependencies", fields: [dependsOnId], references: [id], onDelete: SetNull)
-  dependentTasks   Task[]    @relation("TaskDependencies")
-  
-  notes            Note[]
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  goalId String?
+  goal   Goal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  dependsOnId    String?
+  dependsOn      Task?   @relation("TaskDependencies", fields: [dependsOnId], references: [id], onDelete: SetNull)
+  dependentTasks Task[]  @relation("TaskDependencies")
+
+  notes     Note[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isCompleted, priority])
+  @@index([projectId])
+  @@index([goalId])
 }
 
 model Goal {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   title       String
   description String?
-  progress    Int      @default(0)
-  status      String   @default("ACTIVE")
-  
-  parentId    String?
-  parent      Goal?    @relation("GoalHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children    Goal[]   @relation("GoalHierarchy")
-  
-  tasks       Task[]
-  notes       Note[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  progress    Int     @default(0)
+  status      String  @default("ACTIVE")
+
+  parentId String?
+  parent   Goal?   @relation("GoalHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Goal[]  @relation("GoalHierarchy")
+
+  tasks     Task[]
+  notes     Note[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+  @@index([parentId])
 }
 
 model Habit {
@@ -214,6 +236,8 @@ model Habit {
   logs           HabitLog[]
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+
+  @@index([userId])
 }
 
 model HabitLog {
@@ -229,26 +253,31 @@ model HabitLog {
 }
 
 model Note {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  content   String
-  tags      String?
-  
+  id      String  @id @default(uuid())
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title   String
+  content String
+  tags    String?
+
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  
-  taskId    String?
-  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  
-  goalId    String?
-  goal      Goal?    @relation(fields: [goalId], references: [id], onDelete: SetNull)
-  
+
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  goalId String?
+  goal   Goal?   @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
   meetingId String?
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([taskId])
+  @@index([goalId])
 }
 
 model Project {
@@ -261,28 +290,32 @@ model Project {
   status      String    @default("ACTIVE")
   deadline    DateTime?
   color       String    @default("#5227FF")
-  
-  tasks       Task[]
-  notes       Note[]
-  files       String?
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+
+  tasks Task[]
+  notes Note[]
+  files String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
 }
 
 model CalendarEvent {
-  id            String    @id @default(uuid())
+  id            String   @id @default(uuid())
   userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title         String
   description   String?
   startTime     DateTime
   endTime       DateTime
-  category      String    @default("FOCUS")
-  isTimeBlock   Boolean   @default(false)
-  isRecurring   Boolean   @default(false)
+  category      String   @default("FOCUS")
+  isTimeBlock   Boolean  @default(false)
+  isRecurring   Boolean  @default(false)
   googleEventId String?
-  color         String    @default("#7B5CFF")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  color         String   @default("#7B5CFF")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, startTime, endTime])
 }

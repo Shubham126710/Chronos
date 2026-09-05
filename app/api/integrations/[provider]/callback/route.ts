@@ -1,0 +1,117 @@
+import { NextResponse } from "next/server";
+import { prisma } from "../../../../../lib/prisma";
+
+const TOKEN_URLS: Record<string, string> = {
+  google: "https://oauth2.googleapis.com/token",
+  slack: "https://slack.com/api/oauth.v2.access",
+  spotify: "https://accounts.spotify.com/api/token",
+  zoom: "https://zoom.us/oauth/token",
+};
+
+export async function GET(req: Request, { params }: { params: Promise<{ provider: string }> }) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+    const error = searchParams.get("error");
+    
+    const { provider: providerParam } = await params;
+    const provider = providerParam.toLowerCase();
+
+    if (error) {
+      console.error(`OAuth Error for ${provider}:`, error);
+      // We'd parse state here to get userId, but for now just redirect
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=integration_failed`);
+    }
+
+    if (!code || !state) {
+      return NextResponse.json({ success: false, message: "Missing code or state" }, { status: 400 });
+    }
+
+    let parsedState;
+    try {
+      parsedState = JSON.parse(Buffer.from(state, "base64").toString("utf8"));
+    } catch (e) {
+      return NextResponse.json({ success: false, message: "Invalid state parameter" }, { status: 400 });
+    }
+
+    const { userId } = parsedState;
+
+    if (!userId) {
+      return NextResponse.json({ success: false, message: "User ID missing in state" }, { status: 400 });
+    }
+
+    const redirectUri = `${process.env.NEXTAUTH_URL}/api/integrations/${provider}/callback`;
+    const tokenUrl = TOKEN_URLS[provider];
+    
+    // Default structure for token exchange
+    const tokenParams = new URLSearchParams({
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri,
+      client_id: process.env[`${provider.toUpperCase()}_CLIENT_ID`] || "",
+      client_secret: process.env[`${provider.toUpperCase()}_CLIENT_SECRET`] || "",
+    });
+
+    let headers: Record<string, string> = {
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+
+    // Spotify requires Basic Auth for token exchange
+    if (provider === "spotify" || provider === "zoom") {
+      const clientId = process.env[`${provider.toUpperCase()}_CLIENT_ID`] || "";
+      const clientSecret = process.env[`${provider.toUpperCase()}_CLIENT_SECRET`] || "";
+      headers["Authorization"] = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`;
+    }
+
+    // Attempt token exchange only if credentials exist
+    let tokenData = null;
+    let newStatus = "Connected";
+
+    if (process.env[`${provider.toUpperCase()}_CLIENT_ID`] && process.env[`${provider.toUpperCase()}_CLIENT_SECRET`]) {
+      const tokenRes = await fetch(tokenUrl, {
+        method: "POST",
+        headers,
+        body: tokenParams.toString(),
+      });
+
+      if (!tokenRes.ok) {
+        console.error(`Failed to exchange token for ${provider}:`, await tokenRes.text());
+        newStatus = "Error";
+      } else {
+        tokenData = await tokenRes.json();
+      }
+    } else {
+      // If we don't have credentials, we can't exchange the token. Just log it.
+      // This allows the architecture to function without crashing before creds are added.
+      console.warn(`No credentials for ${provider}, skipping token exchange.`);
+    }
+
+    await prisma.integration.upsert({
+      where: {
+        userId_provider: {
+          userId,
+          provider
+        }
+      },
+      update: {
+        accessToken: tokenData?.access_token || null,
+        refreshToken: tokenData?.refresh_token || null,
+        status: newStatus,
+        updatedAt: new Date()
+      },
+      create: {
+        userId,
+        provider,
+        accessToken: tokenData?.access_token || null,
+        refreshToken: tokenData?.refresh_token || null,
+        status: newStatus,
+      }
+    });
+
+    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/`);
+  } catch (error) {
+    console.error(`Callback error:`, error);
+    return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=integration_server_error`);
+  }
+}

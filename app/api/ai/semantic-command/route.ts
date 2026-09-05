@@ -98,6 +98,49 @@ export async function POST(req: Request) {
           return goals.map(g => ({ id: g.id, title: g.title, progress: g.progress }));
         }
       }),
+      getHabits: tool({
+        description: "Get the user's habits and streaks.",
+        parameters: z.object({}),
+        // @ts-ignore
+        execute: async (args: any) => {
+          const habits = await prisma.habit.findMany({ where: { userId }, take: 15 });
+          return habits.map(h => ({ id: h.id, title: h.title, currentStreak: h.currentStreak, targetDays: h.targetDays }));
+        }
+      }),
+      getDashboardInsights: tool({
+        description: "Get summary stats of the user's productivity (active tasks, total goals, etc.).",
+        parameters: z.object({}),
+        // @ts-ignore
+        execute: async (args: any) => {
+          const tasksCount = await prisma.task.count({ where: { userId, isCompleted: false } });
+          const goalsCount = await prisma.goal.count({ where: { userId } });
+          const habitsCount = await prisma.habit.count({ where: { userId } });
+          return { activeTasks: tasksCount, totalGoals: goalsCount, activeHabits: habitsCount };
+        }
+      }),
+      getZoomMeetings: tool({
+        description: "Get the user's upcoming Zoom meetings if their account is connected.",
+        parameters: z.object({}),
+        // @ts-ignore
+        execute: async (args: any) => {
+          const zoomIntegration = await prisma.integration.findUnique({
+            where: { userId_provider: { userId, provider: "zoom" } }
+          });
+          if (!zoomIntegration || zoomIntegration.status !== "Connected" || !zoomIntegration.accessToken) {
+            return { error: "Zoom is not connected. User must connect Zoom first." };
+          }
+          try {
+            const response = await fetch("https://api.zoom.us/v2/users/me/meetings?type=upcoming", {
+              headers: { "Authorization": `Bearer ${zoomIntegration.accessToken}` }
+            });
+            if (!response.ok) return { error: "Failed to fetch from Zoom API" };
+            const data = await response.json();
+            return data.meetings?.map((m: any) => ({ topic: m.topic, startTime: m.start_time, duration: m.duration, joinUrl: m.join_url })) || [];
+          } catch (e) {
+            return { error: "Zoom fetch failed" };
+          }
+        }
+      }),
       respondToUser: tool({
         description: "ALWAYS call this tool to deliver your final response to the user. This tool sends the structured UI and proposed database operations to the user for confirmation.",
         parameters: z.object({
@@ -106,8 +149,14 @@ export async function POST(req: Request) {
           actionLabel: z.string().describe("A short button label (e.g. 'Apply Schedule', 'Create Task'). Use 'Confirm' if there are destructive operations."),
           details: z.array(z.string()).describe("An array of 3-4 bullet points detailing the roadmap, steps, or changes."),
           operations: z.array(z.object({
-            type: z.enum(["CREATE_TASK", "UPDATE_TASK", "DELETE_TASK", "CREATE_EVENT", "UPDATE_EVENT", "DELETE_EVENT"]),
-            payload: z.any().describe("The data payload for the operation (e.g. { title, priority } for CREATE_TASK or { id } for DELETE_TASK)")
+            type: z.enum([
+              "CREATE_TASK", "UPDATE_TASK", "DELETE_TASK", 
+              "CREATE_EVENT", "UPDATE_EVENT", "DELETE_EVENT", 
+              "SEND_SLACK_MESSAGE", 
+              "CREATE_GOAL", "UPDATE_GOAL", "DELETE_GOAL", 
+              "CREATE_HABIT", "LOG_HABIT"
+            ]),
+            payload: z.any().describe("The data payload for the operation (e.g. { title, priority } for CREATE_TASK)")
           })).optional().describe("Array of database operations to propose to the user.")
         }),
         // @ts-ignore
@@ -124,7 +173,7 @@ export async function POST(req: Request) {
 
     while (currentStep < 5) {
       const result = await generateText({
-        model: google('gemini-2.5-flash'),
+        model: google(process.env.GEMINI_MODEL || 'gemini-2.0-flash'),
         system: systemContext,
         messages,
         tools,

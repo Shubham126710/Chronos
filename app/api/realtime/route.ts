@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]/route";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  const userId = (session.user as any).id;
+
   const encoder = new TextEncoder();
 
   const customReadable = new ReadableStream({
@@ -15,7 +23,7 @@ export async function GET() {
       // Simulate periodic live system heartbeats and real-time intelligence events every 15 seconds
       const interval = setInterval(async () => {
         try {
-          const user = await prisma.user.findFirst();
+          const user = await prisma.user.findUnique({ where: { id: userId } });
           if (!user) return;
 
           // Emit a live heartbeat with updated stats

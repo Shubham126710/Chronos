@@ -7,6 +7,7 @@ import {
   Calendar, Zap, Target, X, Layers, Flame, RefreshCw
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { TabType } from "./Sidebar";
 
 interface CommandPaletteProps {
@@ -34,6 +35,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [activeResponse, setActiveResponse] = useState<AIQueryResponse | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -65,77 +67,26 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       title: "“I have my Operating Systems exam in 10 days.”",
       subtitle: "Generate a structured 10-day study & revision plan with buffer days.",
       icon: <Brain className="w-4 h-4 text-foreground" />,
-      response: {
-        title: "10-Day Operating Systems Revision Plan",
-        summary: "I've structured a 10-day roadmap across 4 core units. I automatically placed 2 buffer days on Day 5 and Day 9 to protect your schedule against unexpected delays.",
-        actionLabel: "Schedule 4 Study Blocks & 2 Buffer Days",
-        details: [
-          "Days 1-3: Process Synchronization & Deadlocks (3 hours/day)",
-          "Days 4-6: Memory Management & Virtual Memory + Buffer Day 1",
-          "Days 7-8: File Systems & I/O Hardware (2.5 hours/day)",
-          "Days 9-10: Full Mock Exam & Buffer Day 2 Review",
-        ],
-      },
     },
     {
       title: "“Miss today’s study session?”",
       subtitle: "Automatically reorganize remaining tasks without increasing daily load.",
       icon: <Zap className="w-4 h-4 text-foreground" />,
-      response: {
-        title: "Schedule Reorganized Automatically",
-        summary: "I detected that you missed the 2:00 PM 'Process Synchronization' block. I've rescheduled it without causing workload overload or red overdue badges.",
-        actionLabel: "Apply Schedule Redistribution",
-        details: [
-          "Moved 'Process Synchronization' to tomorrow morning's 10:00 AM buffer block.",
-          "Shifted 'Review Resume' from tomorrow afternoon to Thursday at 3:00 PM.",
-          "Weekly goal progression remains 100% on track.",
-        ],
-      },
     },
     {
       title: "“When should I study today?”",
       subtitle: "Find your optimal cognitive peak window.",
       icon: <Clock className="w-4 h-4 text-foreground/70" />,
-      response: {
-        title: "Optimal Study Recommendation",
-        summary: "You have a 2-hour uninterrupted window between 9:00 AM and 11:00 AM before your team architecture sync.",
-        actionLabel: "Time Block 9:00 AM - 11:00 AM for DSA",
-        details: [
-          "Recommended Task: 'DSA: Dynamic Programming & Graphs'",
-          "Why now? Your historical focus score is highest between 9 AM and 12 PM.",
-          "Weather Note: Rainy afternoon expected, outdoor walk moved to tomorrow.",
-        ],
-      },
     },
     {
       title: "“Can I finish everything before Friday?”",
       subtitle: "Analyze remaining task hours versus free time blocks.",
       icon: <Target className="w-4 h-4 text-foreground" />,
-      response: {
-        title: "Feasibility Analysis: Yes, with 3.5 hrs to spare",
-        summary: "You have 14.5 hours of estimated tasks remaining this week and 18 available focus hours scheduled before Friday 5:00 PM.",
-        actionLabel: "Lock In Weekly Focus Plan",
-        details: [
-          "DSA Practice: 4 hours remaining across Tue/Wed",
-          "OS Exam Prep: 6 hours remaining across Wed/Thu",
-          "Portfolio Revamp: 4.5 hours remaining on Friday morning",
-        ],
-      },
     },
     {
       title: "“Move low priority tasks to next week.”",
       subtitle: "De-clutter your current week to maximize deep work.",
       icon: <Layers className="w-4 h-4 text-foreground" />,
-      response: {
-        title: "3 Tasks Shifted to Next Week",
-        summary: "To keep your focus locked on the OS Exam and DSA Placement Prep, I've moved 3 low-priority tasks to next Monday.",
-        actionLabel: "Confirm Task Deferral",
-        details: [
-          "Deferred: 'System Design Mock Interview Prep' → Next Mon 2 PM",
-          "Deferred: 'Organize desktop downloads folder' → Next Tue 10 AM",
-          "Deferred: 'Update LinkedIn bio' → Next Wed 4 PM",
-        ],
-      },
     },
   ];
 
@@ -212,6 +163,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           details: activeResponse.operations.map(op => `Successfully executed: ${op.type}`),
           operations: [],
         });
+        queryClient.invalidateQueries();
         router.refresh();
       } else {
         setActiveResponse({
