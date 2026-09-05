@@ -116,45 +116,30 @@ export const ContextualTour: React.FC<ContextualTourProps> = ({ onComplete }) =>
   const tooltipHeight = 160; // Approximate max height
   const margin = 16;
   
-  let placement = step.placement;
-
-  // Auto-flip top/bottom to prevent vertical clipping
-  if (placement === "top" && targetRect.top < tooltipHeight + padding + margin) {
-    placement = "bottom";
-  } else if (placement === "bottom" && targetRect.bottom + tooltipHeight + padding + margin > window.innerHeight) {
-    placement = "top";
+  // Calculate raw coordinates based on requested placement
+  let rawTop = 0;
+  let rawLeft = 0;
+  
+  if (step.placement === "right") {
+    rawTop = targetRect.top;
+    rawLeft = targetRect.right + padding + margin;
+  } else if (step.placement === "left") {
+    rawTop = targetRect.top;
+    rawLeft = targetRect.left - tooltipWidth - padding - margin;
+  } else if (step.placement === "bottom") {
+    rawTop = targetRect.bottom + padding + margin;
+    rawLeft = targetRect.left;
+  } else if (step.placement === "top") {
+    rawTop = targetRect.top - tooltipHeight - padding - margin;
+    rawLeft = targetRect.left;
   }
 
-  // Auto-flip left/right to prevent horizontal clipping
-  if (placement === "right" && targetRect.right + tooltipWidth + padding + margin > window.innerWidth) {
-    // Switch to left if there's space, else bottom
-    if (targetRect.left - tooltipWidth - padding - margin > 0) {
-      placement = "left";
-    } else {
-      placement = "bottom";
-    }
-  } else if (placement === "left" && targetRect.left - tooltipWidth - padding - margin < 0) {
-    if (targetRect.right + tooltipWidth + padding + margin < window.innerWidth) {
-      placement = "right";
-    } else {
-      placement = "bottom";
-    }
-  }
+  // Force tooltip to stay within the viewport bounds
+  // We use 200 as a generous estimate for the tooltip height to ensure it doesn't clip the bottom
+  const clampedTop = Math.max(margin, Math.min(rawTop, window.innerHeight - 200 - margin));
+  const clampedLeft = Math.max(margin, Math.min(rawLeft, window.innerWidth - tooltipWidth - margin));
 
-  // Calculate final clamped coordinates based on placement
-  if (placement === "right") {
-    let top = Math.max(margin, Math.min(targetRect.top, window.innerHeight - tooltipHeight - margin));
-    tooltipStyle = { top, left: targetRect.right + padding + margin };
-  } else if (placement === "left") {
-    let top = Math.max(margin, Math.min(targetRect.top, window.innerHeight - tooltipHeight - margin));
-    tooltipStyle = { top, right: window.innerWidth - targetRect.left + padding + margin };
-  } else if (placement === "bottom") {
-    let left = Math.max(margin, Math.min(targetRect.left, window.innerWidth - tooltipWidth - margin));
-    tooltipStyle = { top: targetRect.bottom + padding + margin, left };
-  } else if (placement === "top") {
-    let left = Math.max(margin, Math.min(targetRect.left, window.innerWidth - tooltipWidth - margin));
-    tooltipStyle = { bottom: window.innerHeight - targetRect.top + padding + margin, left };
-  }
+  tooltipStyle = { top: clampedTop, left: clampedLeft };
 
   // Ensure tooltip doesn't go off screen (simple clamping)
   const isMobile = window.innerWidth < 640;
