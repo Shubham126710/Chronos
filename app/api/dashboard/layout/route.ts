@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action, layoutId, widgets, name, isDefault } = body;
 
-    if (action === "create") {
+    if (action === "create" || action === "create-layout") {
       if (isDefault) {
         await prisma.dashboardLayout.updateMany({
           where: { userId: userId },
@@ -57,6 +57,30 @@ export async function POST(req: Request) {
           isDefault: isDefault || false,
         },
       });
+
+      if (body.copyFromId) {
+        const sourceWidgets = await prisma.dashboardWidget.findMany({
+          where: { layoutId: body.copyFromId },
+        });
+        
+        for (const w of sourceWidgets) {
+          await prisma.dashboardWidget.create({
+            data: {
+              layoutId: newLayout.id,
+              widgetType: w.widgetType,
+              order: w.order,
+              colSpan: w.colSpan,
+              rowSpan: w.rowSpan,
+              isVisible: w.isVisible,
+              isPinned: w.isPinned,
+              isCollapsed: w.isCollapsed,
+              theme: w.theme,
+              refreshInterval: w.refreshInterval,
+              customSettings: w.customSettings,
+            },
+          });
+        }
+      }
 
       return NextResponse.json({ success: true, data: newLayout });
     }

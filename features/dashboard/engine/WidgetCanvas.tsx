@@ -149,17 +149,40 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
   };
 
   const handleResetToDefault = async () => {
-    // Basic reset implementation (deletes current and forces a re-seed theoretically, or just fetches the default state)
-    // For now, we will just remove all widgets and add standard ones.
     if (!activeLayoutId) return;
     
-    // In a real app we'd have a server endpoint for "Reset Layout". 
-    // Here we'll just empty it.
+    // 1. Remove all existing widgets
     for (const w of widgets) {
       await fetch(`/api/dashboard/widgets?id=${w.id}`, { method: "DELETE" });
     }
     setWidgets([]);
     updateLayoutsState(activeLayoutId, []);
+
+    // 2. Re-seed default widgets
+    const defaultWidgets = [
+      { widgetType: "FOCUS_TIMER", colSpan: 1, rowSpan: 1, theme: "orange" },
+      { widgetType: "CALENDAR", colSpan: 2, rowSpan: 2, theme: "default" },
+      { widgetType: "TASKS", colSpan: 2, rowSpan: 2, theme: "default" },
+      { widgetType: "PROJECTS", colSpan: 2, rowSpan: 1, theme: "teal" },
+      { widgetType: "HABITS", colSpan: 2, rowSpan: 1, theme: "purple" },
+      { widgetType: "GOALS", colSpan: 2, rowSpan: 1, theme: "orange" },
+      { widgetType: "NOTES", colSpan: 2, rowSpan: 1, theme: "default" }
+    ];
+
+    const newWidgets = [];
+    for (const w of defaultWidgets) {
+      const res = await fetch("/api/dashboard/widgets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ layoutId: activeLayoutId, ...w }),
+      }).then((r) => r.json());
+      if (res.success && res.data) {
+        newWidgets.push(res.data);
+      }
+    }
+
+    setWidgets(newWidgets);
+    updateLayoutsState(activeLayoutId, newWidgets);
     setIsCustomizerOpen(false);
   };
 
