@@ -6,6 +6,7 @@ import {
   Search, Sparkles, Brain, Clock, CheckCircle2, ArrowRight, 
   Calendar, Zap, Target, X, Layers, Flame, RefreshCw
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { TabType } from "./Sidebar";
 
 interface CommandPaletteProps {
@@ -19,6 +20,7 @@ interface AIQueryResponse {
   summary: string;
   actionLabel: string;
   details: string[];
+  operations?: any[];
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -28,8 +30,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 }) => {
   const [query, setQuery] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
   const [activeResponse, setActiveResponse] = useState<AIQueryResponse | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -137,18 +141,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   const handleSelectPrompt = (prompt: typeof quickPrompts[0]) => {
     setQuery(prompt.title);
-    setIsThinking(true);
-    setActiveResponse(null);
-
-    setTimeout(() => {
-      setIsThinking(false);
-      setActiveResponse(prompt.response);
-    }, 900);
+    executeAIQuery(prompt.title);
   };
 
-  const handleCustomSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
+  const executeAIQuery = async (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
 
     setIsThinking(true);
     setActiveResponse(null);
@@ -157,7 +154,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       const res = await fetch("/api/ai/semantic-command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query: searchQuery }),
       });
       const data = await res.json();
       
@@ -180,6 +177,60 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       });
     } finally {
       setIsThinking(false);
+    }
+  };
+
+  const handleCustomSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeAIQuery(query);
+  };
+
+  const handleExecute = async () => {
+    if (!activeResponse) return;
+    
+    // If no operations, just close and navigate
+    if (!activeResponse.operations || activeResponse.operations.length === 0) {
+      onClose();
+      if (onNavigate) onNavigate("tasks");
+      return;
+    }
+
+    setIsExecuting(true);
+    try {
+      const res = await fetch("/api/ai/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ operations: activeResponse.operations }),
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setActiveResponse({
+          title: "Execution Successful",
+          summary: "I have successfully applied these changes to your system.",
+          actionLabel: "Done",
+          details: activeResponse.operations.map(op => `Successfully executed: ${op.type}`),
+          operations: [],
+        });
+        router.refresh();
+      } else {
+        setActiveResponse({
+          ...activeResponse,
+          title: "Execution Failed",
+          summary: data.message || "Failed to execute operations.",
+          operations: [],
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setActiveResponse({
+        ...activeResponse,
+        title: "Execution Error",
+        summary: "Could not reach the execution endpoint.",
+        operations: [],
+      });
+    } finally {
+      setIsExecuting(false);
     }
   };
 
@@ -273,20 +324,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveResponse(null)}
-                  className="px-4 py-2 rounded-xl bg-foreground/5 hover:bg-foreground/10 text-foreground/70 text-xs font-medium transition-colors"
+                  disabled={isExecuting}
+                  className="px-4 py-2 rounded-xl bg-foreground/5 hover:bg-foreground/10 text-foreground/70 text-xs font-medium transition-colors disabled:opacity-50"
                 >
                   Back to commands
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    onClose();
-                    if (onNavigate) onNavigate("tasks");
-                  }}
-                  className="px-5 py-2 rounded-xl bg-foreground text-background font-semibold text-xs border border-border shadow-lg hover:scale-[1.02] transition-transform flex items-center gap-1.5"
+                  onClick={handleExecute}
+                  disabled={isExecuting}
+                  className="px-5 py-2 rounded-xl bg-foreground text-background font-semibold text-xs border border-border shadow-lg hover:scale-[1.02] transition-transform flex items-center gap-1.5 disabled:opacity-50 disabled:hover:scale-100"
                 >
-                  <span>{activeResponse.actionLabel}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  {isExecuting ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <span>{activeResponse.actionLabel}</span>
+                  )}
+                  {!isExecuting && <ArrowRight className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </motion.div>
