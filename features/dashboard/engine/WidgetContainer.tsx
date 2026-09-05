@@ -85,6 +85,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
   return (
     <motion.div
+      id={`widget-${widgetType.toLowerCase()}`}
       layout
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}

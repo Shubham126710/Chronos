@@ -7,6 +7,8 @@ import { Loader2 } from "lucide-react";
 import { Sidebar, TabType } from "../../components/layout/Sidebar";
 import { TopNav } from "../../components/layout/TopNav";
 import { CommandPalette } from "../../components/layout/CommandPalette";
+import { OnboardingFlow } from "../../features/onboarding/OnboardingFlow";
+import { ContextualTour } from "../../features/onboarding/ContextualTour";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
@@ -14,6 +16,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  
+  // Onboarding State
+  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -31,10 +38,47 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
+    } else if (status === "authenticated") {
+      fetch("/api/user/onboarding")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data && !data.data.hasCompletedOnboarding) {
+            setNeedsOnboarding(true);
+          }
+        })
+        .catch(console.error)
+        .finally(() => setIsCheckingOnboarding(false));
     }
   }, [status, router]);
 
-  if (!mounted || status === "loading" || status === "unauthenticated") {
+  const completeOnboarding = async (primaryGoal?: string) => {
+    setNeedsOnboarding(false);
+    setShowTour(true);
+    try {
+      await fetch("/api/user/onboarding", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ primaryGoal }),
+      });
+    } catch (e) {
+      console.error("Failed to save onboarding state", e);
+    }
+  };
+
+  const skipOnboarding = async () => {
+    setNeedsOnboarding(false);
+    try {
+      await fetch("/api/user/onboarding", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ primaryGoal: "SKIPPED" }),
+      });
+    } catch (e) {
+      console.error("Failed to skip onboarding", e);
+    }
+  };
+
+  if (!mounted || status === "loading" || status === "unauthenticated" || isCheckingOnboarding) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0B0910]">
         <Loader2 className="w-8 h-8 text-white/50 animate-spin" />
@@ -47,14 +91,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const currentTab = (segments[2] as TabType) || "dashboard";
 
   return (
-    <div className="h-screen w-full flex bg-background overflow-hidden text-foreground selection:bg-foreground selection:text-background font-sans">
+    <div className="h-screen w-full flex bg-background overflow-hidden text-foreground selection:bg-foreground selection:text-background font-sans relative">
       {/* Sidebar - Premium Black */}
-      <div className="relative z-30 flex shrink-0 h-full border-r border-border">
+      <div id="chronos-sidebar" className="relative z-30 flex shrink-0 h-full border-r border-border">
         <Sidebar 
           activeTab={currentTab} 
           setActiveTab={(tab) => router.push(`/app/${tab}`)}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onSignOut={() => signOut({ callbackUrl: "/login" })}
+          onOpenTour={() => setShowTour(true)}
         />
       </div>
 
@@ -65,7 +110,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         />
         
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+        <div id="dashboard-canvas" className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           {children}
         </div>
       </main>
@@ -75,6 +120,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         onClose={() => setIsCommandPaletteOpen(false)}
         onNavigate={(tab) => router.push(`/app/${tab}`)}
       />
+
+      {needsOnboarding && (
+        <OnboardingFlow 
+          onComplete={completeOnboarding} 
+          onSkip={skipOnboarding} 
+        />
+      )}
+
+      {showTour && (
+        <ContextualTour onComplete={() => setShowTour(false)} />
+      )}
     </div>
   );
 }

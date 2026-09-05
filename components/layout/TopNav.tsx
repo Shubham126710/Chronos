@@ -91,6 +91,7 @@ export const TopNav: React.FC<TopNavProps> = ({ activeTab, onOpenCommandPalette 
         </div>
 
         <button
+          id="command-palette-trigger"
           onClick={onOpenCommandPalette}
           className="text-foreground/50 hover:text-foreground transition-colors"
         >

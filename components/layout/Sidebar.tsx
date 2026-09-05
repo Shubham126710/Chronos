@@ -5,11 +5,12 @@ import { LogOut } from "lucide-react";
 
 export type TabType = "dashboard" | "tasks" | "calendar" | "goals" | "habits" | "projects" | "notes" | "analytics";
 
-interface SidebarProps {
+export interface SidebarProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   onOpenCommandPalette: () => void;
   onSignOut: () => void;
+  onOpenTour?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -17,6 +18,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   onOpenCommandPalette,
   onSignOut,
+  onOpenTour,
 }) => {
   const navItems: { id: TabType; label: string }[] = [
     { id: "dashboard", label: "DASHBOARD" },
@@ -94,18 +96,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* User Info */}
-        <div className="flex items-center justify-between pt-4 border-t border-border">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] font-medium text-foreground tracking-widest uppercase">ALEX VANCE</span>
-            <span className="text-[9px] text-foreground/40 tracking-widest uppercase">USER.ALEX</span>
+        <div className="flex flex-col gap-4 pt-4 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-medium text-foreground tracking-widest uppercase">ALEX VANCE</span>
+              <span className="text-[9px] text-foreground/40 tracking-widest uppercase">USER.ALEX</span>
+            </div>
+            <button 
+              onClick={onSignOut}
+              title="Terminate Session"
+              className="text-foreground/40 hover:text-foreground transition-colors text-[9px] uppercase tracking-widest"
+            >
+              [EXIT]
+            </button>
           </div>
-          <button 
-            onClick={onSignOut}
-            title="Terminate Session"
-            className="text-foreground/40 hover:text-foreground transition-colors text-[9px] uppercase tracking-widest"
-          >
-            [EXIT]
-          </button>
+          {onOpenTour && (
+            <button 
+              onClick={onOpenTour}
+              className="text-left text-foreground/40 hover:text-foreground transition-colors text-[9px] uppercase tracking-widest flex items-center gap-2"
+            >
+              <span>[RE-RUN SYSTEM TOUR]</span>
+            </button>
+          )}
         </div>
       </div>
     </aside>

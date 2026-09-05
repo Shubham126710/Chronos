@@ -421,13 +421,16 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
             </button>
             
             {/* Add Module Button */}
-            <button
-              onClick={() => setIsCatalogOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-foreground text-background font-medium text-[11px] font-mono uppercase tracking-widest transition-colors border border-foreground hover:bg-foreground/90 shrink-0"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Add Module ({widgets.length}/10)</span>
-            </button>
+            {widgets.length < 10 && (
+              <button 
+                id="add-module-btn"
+                onClick={() => setIsCatalogOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 text-[9px] uppercase tracking-widest text-foreground/40 hover:text-foreground hover:bg-surface-hover transition-colors font-mono border border-transparent hover:border-border"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Add Module ({widgets.length}/10)</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

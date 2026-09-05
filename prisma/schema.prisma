@@ -13,11 +13,13 @@ model User {
   name               String
   passwordHash       String?
   avatar             String?
-  productivityScore  Int      @default(94)
-  habitStreak        Int      @default(14)
-  focusHoursThisWeek Float    @default(28.5)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  productivityScore      Int      @default(94)
+  habitStreak            Int      @default(14)
+  focusHoursThisWeek     Float    @default(28.5)
+  hasCompletedOnboarding Boolean  @default(false)
+  primaryGoal            String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   layouts            DashboardLayout[]
   integrations       Integration[]
