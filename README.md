@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/logo-github.png" alt="Chronos Logo" width="350" />
+  <img src="app/icon.svg" alt="Chronos Logo" width="150" />
   <p align="center">
     <br/>
     <strong>A premium, high-performance productivity operating system designed for deep work.</strong>
