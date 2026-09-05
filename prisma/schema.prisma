@@ -1,0 +1,286 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  name               String
+  passwordHash       String?
+  avatar             String?
+  productivityScore  Int      @default(94)
+  habitStreak        Int      @default(14)
+  focusHoursThisWeek Float    @default(28.5)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  layouts            DashboardLayout[]
+  integrations       Integration[]
+  notifications      Notification[]
+  aiConversations    AIConversation[]
+  focusSessions      FocusSession[]
+  pomodoroSessions   PomodoroSession[]
+  activityLogs       ActivityLog[]
+  tasks              Task[]
+  goals              Goal[]
+  habits             Habit[]
+  notes              Note[]
+  projects           Project[]
+  calendarEvents     CalendarEvent[]
+}
+
+model DashboardLayout {
+  id          String            @id @default(uuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String            @default("Default Workspace")
+  isDefault   Boolean           @default(false)
+  widgets     DashboardWidget[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model DashboardWidget {
+  id              String             @id @default(uuid())
+  layoutId        String
+  layout          DashboardLayout    @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  widgetType      String
+  order           Int                @default(0)
+  colSpan         Int                @default(1)
+  rowSpan         Int                @default(1)
+  isVisible       Boolean            @default(true)
+  isPinned        Boolean            @default(false)
+  isCollapsed     Boolean            @default(false)
+  theme           String             @default("default")
+  refreshInterval Int                @default(60)
+  customSettings  String?
+  preferences     WidgetPreference[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model WidgetPreference {
+  id        String          @id @default(uuid())
+  widgetId  String
+  widget    DashboardWidget @relation(fields: [widgetId], references: [id], onDelete: Cascade)
+  key       String
+  value     String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@unique([widgetId, key])
+}
+
+model Integration {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String
+  accessToken  String?
+  refreshToken String?
+  status       String    @default("CONNECTED")
+  metadata     String?
+  lastSynced   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, provider])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("INFO")
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+}
+
+model AIConversation {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String   @default("AI Assistant Chat")
+  messages  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FocusSession {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  durationMinutes Int      @default(25)
+  taskName        String?
+  category        String   @default("DEEP_WORK")
+  completedAt     DateTime @default(now())
+}
+
+model PomodoroSession {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workMinutes     Int      @default(25)
+  breakMinutes    Int      @default(5)
+  completedCycles Int      @default(1)
+  createdAt       DateTime @default(now())
+}
+
+model WeatherCache {
+  id        String   @id @default(uuid())
+  location  String   @unique
+  data      String
+  updatedAt DateTime @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String
+  module    String
+  metadata  String?
+  createdAt DateTime @default(now())
+}
+
+model Task {
+  id               String    @id @default(uuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  priority         String    @default("MEDIUM")
+  estimatedMinutes Int       @default(30)
+  dueDate          DateTime?
+  isCompleted      Boolean   @default(false)
+  isRecurring      Boolean   @default(false)
+  recurringRule    String?
+  labels           String?
+  
+  projectId        String?
+  project          Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  goalId           String?
+  goal             Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  
+  dependsOnId      String?
+  dependsOn        Task?     @relation("TaskDependencies", fields: [dependsOnId], references: [id], onDelete: SetNull)
+  dependentTasks   Task[]    @relation("TaskDependencies")
+  
+  notes            Note[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Goal {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  progress    Int      @default(0)
+  status      String   @default("ACTIVE")
+  
+  parentId    String?
+  parent      Goal?    @relation("GoalHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Goal[]   @relation("GoalHierarchy")
+  
+  tasks       Task[]
+  notes       Note[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Habit {
+  id             String     @id @default(uuid())
+  userId         String
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  category       String     @default("CODING")
+  currentStreak  Int        @default(0)
+  bestStreak     Int        @default(0)
+  completionRate Float      @default(0.0)
+  targetDays     Int        @default(7)
+  logs           HabitLog[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model HabitLog {
+  id        String   @id @default(uuid())
+  habitId   String
+  habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  date      String
+  completed Boolean  @default(true)
+  value     Float?
+  createdAt DateTime @default(now())
+
+  @@unique([habitId, date])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  tags      String?
+  
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  
+  goalId    String?
+  goal      Goal?    @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  
+  meetingId String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Project {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  progress    Int       @default(0)
+  status      String    @default("ACTIVE")
+  deadline    DateTime?
+  color       String    @default("#5227FF")
+  
+  tasks       Task[]
+  notes       Note[]
+  files       String?
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model CalendarEvent {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  startTime     DateTime
+  endTime       DateTime
+  category      String    @default("FOCUS")
+  isTimeBlock   Boolean   @default(false)
+  isRecurring   Boolean   @default(false)
+  googleEventId String?
+  color         String    @default("#7B5CFF")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}

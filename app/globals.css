@@ -1,26 +1,96 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0B0910;
+  --foreground: #EBEAE5;
+  
+  --color-chronos-purple: #5227FF; /* Used very sparingly now */
+  --color-chronos-orange: #FF5A1F; /* A sharper, more technical orange than the previous pastel one */
+  
+  --color-border: #2A2832;
+  --color-border-subtle: #1C1A22;
+  
+  /* Surface colors for cards/modules */
+  --color-surface: #0B0910;
+  --color-surface-hover: #16141D;
+  --color-surface-dark: #EBEAE5;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-border: var(--color-border);
+  --color-border-subtle: var(--color-border-subtle);
+  
+  --color-surface: var(--color-surface);
+  --color-surface-hover: var(--color-surface-hover);
+  --color-surface-dark: var(--color-surface-dark);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand-purple: var(--color-chronos-purple);
+  --color-brand-orange: var(--color-chronos-orange);
+
+  --font-sans: var(--font-geist-sans), var(--font-outfit), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  selection-background-color: var(--foreground);
+  selection-color: var(--background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Structural lines */
+.border-structural {
+  border-color: var(--color-border);
+}
+
+/* Flat Panel Utilities (Replacing glassmorphism) */
+.system-panel {
+  background: var(--background);
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.system-panel-interactive {
+  background: var(--background);
+  border: 1px solid var(--color-border);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.system-panel-interactive:hover {
+  background: var(--color-surface-hover);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 0px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* Dither overlay */
+.bg-dither {
+  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+  background-repeat: repeat;
+  opacity: 0.4;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
