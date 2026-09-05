@@ -73,6 +73,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <CommandPalette 
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
+        onNavigate={(tab) => router.push(`/app/${tab}`)}
       />
     </div>
   );

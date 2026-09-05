@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { TabType } from "./Sidebar";
+import { format } from "date-fns";
 
 interface TopNavProps {
   activeTab: TabType;
@@ -9,6 +10,39 @@ interface TopNavProps {
 }
 
 export const TopNav: React.FC<TopNavProps> = ({ activeTab, onOpenCommandPalette }) => {
+  const [time, setTime] = useState<Date>(new Date());
+  const [weatherAlert, setWeatherAlert] = useState("SCANNING...");
+  const [isAlertCritical, setIsAlertCritical] = useState(false);
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        const res = await fetch("/api/weather?lat=40.7128&lon=-74.0060");
+        const data = await res.json();
+        if (data && data.weather && data.weather.length > 0) {
+          const main = data.weather[0].main.toUpperCase();
+          if (main.includes("RAIN") || main.includes("STORM") || main.includes("SNOW")) {
+            setWeatherAlert(`PRECIPITATION / ${main}`);
+            setIsAlertCritical(true);
+          } else {
+            setWeatherAlert(`CLEAR / ${main}`);
+            setIsAlertCritical(false);
+          }
+        }
+      } catch (e) {
+        setWeatherAlert("OFFLINE");
+      }
+    };
+    fetchWeather();
+    const interval = setInterval(fetchWeather, 15 * 60 * 1000); // 15 mins
+    return () => clearInterval(interval);
+  }, []);
+
   const getTabTitle = (tab: TabType): { title: string; subtitle: string } => {
     switch (tab) {
       case "dashboard":
@@ -45,9 +79,13 @@ export const TopNav: React.FC<TopNavProps> = ({ activeTab, onOpenCommandPalette 
 
       {/* Right Side Controls */}
       <div className="flex items-center gap-6">
+        <div className="hidden lg:flex items-center gap-4">
+          <span className="text-foreground/50">{format(time, "yyyy.MM.dd // HH:mm:ss")}</span>
+        </div>
+
         <div className="hidden lg:flex items-center gap-2">
-          <span className="text-foreground">ALERT:</span> 
-          <span className="text-foreground/50">RAIN AT 16:00</span>
+          <span className={isAlertCritical ? "text-foreground" : "text-foreground/50"}>WEATHER:</span> 
+          <span className={isAlertCritical ? "text-foreground font-bold" : "text-foreground/50"}>{weatherAlert}</span>
         </div>
 
         <button

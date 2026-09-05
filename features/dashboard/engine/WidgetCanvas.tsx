@@ -438,7 +438,13 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
                 onDrop={(e) => handleDrop(e, index)}
                 className={clsx(
                   "transition-all",
-                  dragOverIndex === index && "scale-100 ring-2 ring-foreground"
+                  dragOverIndex === index && "scale-100 ring-2 ring-foreground",
+                  w.colSpan === 2 && "col-span-1 md:col-span-2",
+                  w.colSpan === 3 && "col-span-1 md:col-span-2 lg:col-span-3",
+                  w.colSpan === 4 && "col-span-1 md:col-span-2 lg:col-span-4",
+                  !w.colSpan && "col-span-1",
+                  !w.isCollapsed && w.rowSpan === 2 && "row-span-2",
+                  !w.isCollapsed && w.rowSpan === 3 && "row-span-3"
                 )}
               >
                 <WidgetContainer

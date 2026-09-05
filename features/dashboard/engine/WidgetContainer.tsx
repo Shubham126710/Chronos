@@ -147,7 +147,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 5 }}
-                  className="absolute right-0 top-6 z-50 bg-background border border-border p-2 min-w-[140px] flex flex-col gap-1 shadow-lg"
+                  className="absolute right-0 top-6 z-50 bg-[#0B0910] border border-border p-2 min-w-[140px] flex flex-col gap-1 shadow-2xl"
                 >
                   <div className="text-[9px] font-mono text-foreground/40 px-2 py-1 uppercase border-b border-border mb-1">Dimensions</div>
                   {[
@@ -167,8 +167,8 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
                       className={clsx(
                         "text-left px-2 py-1.5 text-[10px] font-mono uppercase tracking-wider flex items-center justify-between transition-colors",
                         colSpan === s.col && rowSpan === s.row
-                          ? "bg-foreground text-background"
-                          : "text-foreground/70 hover:bg-surface-hover hover:text-foreground"
+                          ? "bg-foreground text-[#0B0910] font-bold"
+                          : "text-foreground/70 hover:bg-foreground/10 hover:text-foreground"
                       )}
                     >
                       <span>{s.label}</span>
