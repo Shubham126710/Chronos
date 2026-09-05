@@ -26,31 +26,21 @@ export const AIAssistantWidget: React.FC = () => {
     setLoading(true);
 
     try {
-      let action = "plan-day";
-      if (text.toLowerCase().includes("rebalance") || text.toLowerCase().includes("rain") || text.toLowerCase().includes("missed")) action = "rebalance";
-      if (text.toLowerCase().includes("study") || text.toLowerCase().includes("gate") || text.toLowerCase().includes("exam")) action = "create-study-plan";
-      if (text.toLowerCase().includes("summarize") || text.toLowerCase().includes("week")) action = "summarize-week";
-      if (text.toLowerCase().includes("goal") || text.toLowerCase().includes("placement")) action = "create-goal";
-
-      const res = await fetch(`/api/ai/${action}`, {
+      const res = await fetch("/api/ai/semantic-command", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text }),
-      }).then((r) => r.json());
-
-      let replyContent = "I have processed your request and synchronized your command center.";
-      if (res.success && res.data) {
-        if (action === "plan-day") {
-          replyContent = `I have optimized your day! ${res.data.summary}\n\nSchedule:\n` + res.data.schedule?.map((s: any) => `• [${s.time}] ${s.activity}`).join("\n");
-        } else if (action === "rebalance") {
-          replyContent = `Schedule Re-balanced! Rescheduled '${res.data.rescheduledTask}' to ${res.data.newSlot}. Goal status: ${res.data.goalStatus}.`;
-        } else if (action === "create-study-plan") {
-          replyContent = `Created ${res.data.title}! Added 4 weekly modules and blocked Friday afternoons as buffer blocks.`;
-        } else if (action === "summarize-week") {
-          replyContent = `Weekly Synthesis: Score is ${res.data.score}/100 with ${res.data.focusHours} deep work hours. Top achievement: ${res.data.topAchievement}`;
-        } else if (action === "create-goal") {
-          replyContent = `Created goal '${res.data.goal?.title}'! Predicted completion: ${res.data.predictedCompletion}. Risk analysis: ${res.data.riskAnalysis}`;
+        body: JSON.stringify({ query: text }),
+      });
+      const data = await res.json();
+      
+      let replyContent = "I encountered a minor network glitch, but your local database state is safe.";
+      if (data.success && data.data) {
+        replyContent = data.data.summary;
+        if (data.data.actionLabel && data.data.actionLabel !== "Dismiss") {
+          replyContent += `\n\n[PROPOSED ACTION: ${data.data.actionLabel}] - Open Command Palette (⌘K) to execute.`;
         }
+      } else {
+        replyContent = data.message || "Failed to analyze command.";
       }
 
       setMessages((prev) => [

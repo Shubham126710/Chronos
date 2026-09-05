@@ -118,31 +118,62 @@ export async function POST(req: Request) {
       })
     };
 
-    const result = await generateText({
-      model: google('gemini-2.5-flash'),
-      system: systemContext,
-      prompt: query,
-      tools,
-      maxSteps: 5,
-    });
-
-    // Extract the respondToUser call from the steps
+    let currentStep = 0;
+    let messages: any[] = [{ role: "user", content: query }];
     let aiResponseData = null;
-    
-    // Check all tool calls made during the steps
-    for (const step of result.steps) {
-      for (const call of step.toolCalls) {
+
+    while (currentStep < 5) {
+      const result = await generateText({
+        model: google('gemini-2.5-flash'),
+        system: systemContext,
+        messages,
+        tools,
+      });
+
+      const toolCalls = result.toolCalls || [];
+      const toolResults = [];
+      let responded = false;
+
+      for (const call of toolCalls) {
+        const callArgs = (call as any).args || (call as any).input;
         if (call.toolName === 'respondToUser') {
-          aiResponseData = call.args;
+          aiResponseData = callArgs;
+          responded = true;
+          break;
+        } else if (tools[call.toolName as keyof typeof tools]) {
+          try {
+            const toolFn = tools[call.toolName as keyof typeof tools].execute as Function;
+            const res = await toolFn(callArgs);
+            toolResults.push({ toolCallId: call.toolCallId, result: res });
+          } catch (e) {
+            toolResults.push({ toolCallId: call.toolCallId, result: "Tool failed." });
+          }
         }
       }
+
+      if (responded) break;
+
+      if (toolCalls.length === 0) {
+        break; // Model didn't call any tools and didn't respondToUser
+      }
+
+      messages.push({
+        role: "assistant",
+        content: result.text || "",
+        toolCalls: toolCalls
+      });
+      messages.push({
+        role: "tool",
+        content: toolResults
+      });
+
+      currentStep++;
     }
 
     if (!aiResponseData) {
-      // Fallback if AI didn't use the tool properly
       aiResponseData = {
         title: "AI Analysis Complete",
-        summary: result.text || "I analyzed your request but did not formulate a structured UI response.",
+        summary: "I analyzed your request but did not formulate a structured UI response.",
         actionLabel: "Dismiss",
         details: ["You can try rephrasing your request."],
         operations: []

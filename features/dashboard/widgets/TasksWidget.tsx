@@ -51,7 +51,7 @@ export const TasksWidget: React.FC = () => {
   if (error || !data) return <div className="text-[10px] font-mono text-red-500">ERROR</div>;
 
   const filteredTasks = filter === "priority" 
-    ? data.filter((t: any) => t.priority === "high") 
+    ? data.filter((t: any) => t.priority === "HIGH" || t.priority === "CRITICAL") 
     : data;
 
   return (
@@ -94,18 +94,18 @@ export const TasksWidget: React.FC = () => {
                 <button 
                   className="text-foreground shrink-0 mt-0.5"
                 >
-                  {t.status === "completed" ? "■" : "□"}
+                  {t.isCompleted ? "■" : "□"}
                 </button>
                 
                 <div className="flex flex-col gap-1 w-full min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <span className={clsx(
                       "text-sm tracking-tight",
-                      t.status === "completed" ? "text-foreground/40 line-through" : "text-foreground"
+                      t.isCompleted ? "text-foreground/40 line-through" : "text-foreground"
                     )}>
                       {t.title}
                     </span>
-                    {t.priority === "high" && (
+                    {(t.priority === "HIGH" || t.priority === "CRITICAL") && (
                       <span className="text-foreground text-[10px] shrink-0 mt-0.5">*</span>
                     )}
                   </div>
