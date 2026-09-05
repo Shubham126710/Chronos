@@ -23,16 +23,18 @@ export const TopNav: React.FC<TopNavProps> = ({ activeTab, onOpenCommandPalette 
     const fetchWeather = async () => {
       try {
         const res = await fetch("/api/weather?lat=40.7128&lon=-74.0060");
-        const data = await res.json();
-        if (data && data.weather && data.weather.length > 0) {
-          const main = data.weather[0].main.toUpperCase();
-          if (main.includes("RAIN") || main.includes("STORM") || main.includes("SNOW")) {
-            setWeatherAlert(`PRECIPITATION / ${main}`);
+        const json = await res.json();
+        if (json && json.success && json.data) {
+          const condition = json.data.condition.toUpperCase();
+          if (condition.includes("RAIN") || condition.includes("STORM") || condition.includes("SNOW")) {
+            setWeatherAlert(`PRECIPITATION / ${condition}`);
             setIsAlertCritical(true);
           } else {
-            setWeatherAlert(`CLEAR / ${main}`);
+            setWeatherAlert(`CLEAR / ${condition}`);
             setIsAlertCritical(false);
           }
+        } else {
+          setWeatherAlert("OFFLINE");
         }
       } catch (e) {
         setWeatherAlert("OFFLINE");

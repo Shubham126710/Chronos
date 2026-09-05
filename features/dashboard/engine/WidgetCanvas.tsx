@@ -455,17 +455,19 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
             return (
               <div
                 key={w.id}
-                draggable
+                draggable={draggedWidgetId === w.id || undefined}
                 onDragStart={(e) => handleDragStart(e, w.id)}
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDrop={(e) => handleDrop(e, index)}
                 className={clsx(
                   "transition-all",
                   dragOverIndex === index && "scale-100 ring-2 ring-foreground",
+                  w.colSpan === 1 && "col-span-1",
                   w.colSpan === 2 && "col-span-1 md:col-span-2",
                   w.colSpan === 3 && "col-span-1 md:col-span-2 lg:col-span-3",
                   w.colSpan === 4 && "col-span-1 md:col-span-2 lg:col-span-4",
                   !w.colSpan && "col-span-1",
+                  !w.isCollapsed && w.rowSpan === 1 && "row-span-1",
                   !w.isCollapsed && w.rowSpan === 2 && "row-span-2",
                   !w.isCollapsed && w.rowSpan === 3 && "row-span-3"
                 )}
@@ -488,6 +490,12 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
                   onDuplicate={handleDuplicateWidget}
                   onRefresh={() => {}}
                   isDragging={draggedWidgetId === w.id}
+                  dragHandleProps={{
+                    onMouseEnter: () => setDraggedWidgetId(w.id),
+                    onMouseLeave: () => setDraggedWidgetId(null),
+                    onPointerDown: (e: any) => e.target.parentElement?.parentElement?.parentElement?.parentElement?.setAttribute('draggable', 'true'),
+                    onPointerUp: (e: any) => e.target.parentElement?.parentElement?.parentElement?.parentElement?.removeAttribute('draggable')
+                  }}
                 >
                   {renderWidgetContent(w.widgetType)}
                 </WidgetContainer>

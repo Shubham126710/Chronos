@@ -133,56 +133,20 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
           {/* Size Switcher */}
           <div className="relative flex items-center">
             <button
-              onClick={() => setShowSizeMenu(!showSizeMenu)}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                setShowSizeMenu(!showSizeMenu);
+              }}
               className="text-foreground/40 hover:text-foreground transition-colors flex items-center gap-1 text-[10px] font-mono px-1"
               title="Resize grid dimensions"
             >
               <span>[{colSpan}x{rowSpan}]</span>
             </button>
-
-            {/* Size Dropdown */}
-            <AnimatePresence>
-              {showSizeMenu && (
-                <motion.div
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 5 }}
-                  className="absolute right-0 top-6 z-50 bg-[#0B0910] border border-border p-2 min-w-[140px] flex flex-col gap-1 shadow-2xl"
-                >
-                  <div className="text-[9px] font-mono text-foreground/40 px-2 py-1 uppercase border-b border-border mb-1">Dimensions</div>
-                  {[
-                    { label: "1x1 Compact", col: 1, row: 1 },
-                    { label: "2x1 Wide", col: 2, row: 1 },
-                    { label: "2x2 Large", col: 2, row: 2 },
-                    { label: "3x1 Hero Wide", col: 3, row: 1 },
-                    { label: "4x1 Full Span", col: 4, row: 1 },
-                    { label: "4x2 Command Center", col: 4, row: 2 },
-                  ].map((s) => (
-                    <button
-                      key={s.label}
-                      onClick={() => {
-                        onResize(id, s.col, s.row);
-                        setShowSizeMenu(false);
-                      }}
-                      className={clsx(
-                        "text-left px-2 py-1.5 text-[10px] font-mono uppercase tracking-wider flex items-center justify-between transition-colors",
-                        colSpan === s.col && rowSpan === s.row
-                          ? "bg-foreground text-[#0B0910] font-bold"
-                          : "text-foreground/70 hover:bg-foreground/10 hover:text-foreground"
-                      )}
-                    >
-                      <span>{s.label}</span>
-                      <span className="opacity-50">{s.col}x{s.row}</span>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
           {/* Pin */}
           <button
-            onClick={() => onTogglePin(id)}
+            onPointerDown={(e) => { e.stopPropagation(); onTogglePin(id); }}
             className={clsx(
               "transition-colors",
               isPinned ? "text-foreground" : "text-foreground/40 hover:text-foreground"
@@ -194,7 +158,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
           {/* Collapse */}
           <button
-            onClick={() => onToggleCollapse(id)}
+            onPointerDown={(e) => { e.stopPropagation(); onToggleCollapse(id); }}
             className="text-foreground/40 hover:text-foreground transition-colors ml-1"
             title={isCollapsed ? "Expand module" : "Collapse module"}
           >
@@ -203,7 +167,7 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
           {/* Remove */}
           <button
-            onClick={() => onRemove(id)}
+            onPointerDown={(e) => { e.stopPropagation(); onRemove(id); }}
             className="text-foreground/30 hover:text-red-500 transition-colors ml-2"
             title="Remove from canvas"
           >
@@ -211,6 +175,50 @@ export const WidgetContainer: React.FC<WidgetContainerProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Size Dropdown Placed Outside Opacity Group to avoid glassy transparency */}
+      <AnimatePresence>
+        {showSizeMenu && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            style={{ backgroundColor: '#0B0910' }}
+            className="absolute right-4 top-14 z-[100] border border-border p-2 min-w-[140px] flex flex-col gap-1 shadow-2xl opacity-100"
+          >
+            <div className="text-[9px] font-mono text-foreground/40 px-2 py-1 uppercase border-b border-border mb-1 flex justify-between items-center">
+              <span>Dimensions</span>
+              <button onPointerDown={(e) => { e.stopPropagation(); setShowSizeMenu(false); }} className="hover:text-foreground"><X className="w-3 h-3" /></button>
+            </div>
+            {[
+              { label: "1x1 Compact", col: 1, row: 1 },
+              { label: "2x1 Wide", col: 2, row: 1 },
+              { label: "2x2 Large", col: 2, row: 2 },
+              { label: "3x1 Hero Wide", col: 3, row: 1 },
+              { label: "4x1 Full Span", col: 4, row: 1 },
+              { label: "4x2 Command Center", col: 4, row: 2 },
+            ].map((s) => (
+              <button
+                key={s.label}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  onResize(id, s.col, s.row);
+                  setShowSizeMenu(false);
+                }}
+                className={clsx(
+                  "text-left px-2 py-1.5 text-[10px] font-mono uppercase tracking-wider flex items-center justify-between transition-colors",
+                  colSpan === s.col && rowSpan === s.row
+                    ? "bg-foreground text-[#0B0910] font-bold"
+                    : "text-foreground/70 hover:bg-foreground/10 hover:text-foreground"
+                )}
+              >
+                <span>{s.label}</span>
+                <span className="opacity-50">{s.col}x{s.row}</span>
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Widget Body Content */}
       <AnimatePresence initial={false}>

@@ -43,15 +43,9 @@ export const DashboardCustomizerModal: React.FC<DashboardCustomizerModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 font-mono">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-background/90 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
-      
+    <div className="fixed inset-0 z-[100] flex flex-col font-mono bg-background">
       {/* Modal */}
-      <div className="relative w-full max-w-2xl bg-background border border-border flex flex-col max-h-[85vh]">
+      <div className="relative w-full h-full flex flex-col">
         
         {/* Header */}
         <div className="p-6 border-b border-border flex items-center justify-between">
