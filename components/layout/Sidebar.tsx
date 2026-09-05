@@ -45,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* AI Assistant Command Trigger */}
         <button
+          id="command-palette-trigger"
           onClick={onOpenCommandPalette}
           className="w-full mb-8 text-left group"
         >

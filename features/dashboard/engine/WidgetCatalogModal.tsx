@@ -18,6 +18,7 @@ import {
   Search
 } from "lucide-react";
 import clsx from "clsx";
+import { createPortal } from "react-dom";
 
 export interface CatalogWidgetMeta {
   type: string;
@@ -178,7 +179,7 @@ export const WidgetCatalogModal: React.FC<WidgetCatalogModalProps> = ({
     { id: "LIFE", label: "LIFE" },
   ];
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-[100] flex flex-col font-mono bg-background">
       {/* Modal */}
       <div className="relative w-full h-full flex flex-col">
@@ -284,4 +285,7 @@ export const WidgetCatalogModal: React.FC<WidgetCatalogModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof window === "undefined") return null;
+  return createPortal(modalContent, document.body);
 };

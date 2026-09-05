@@ -92,14 +92,6 @@ export const TopNav: React.FC<TopNavProps> = ({ activeTab, onOpenCommandPalette,
           <span className={isAlertCritical ? "text-foreground font-bold" : "text-foreground/50"}>{weatherAlert}</span>
         </div>
 
-        <button
-          id="command-palette-trigger"
-          onClick={onOpenCommandPalette}
-          className="text-foreground/50 hover:text-foreground transition-colors"
-        >
-          INPUT [⌘K]
-        </button>
-
         <div className="hidden sm:flex items-center gap-2">
           <span className="text-foreground">SYSTEM ACTIVE</span>
         </div>

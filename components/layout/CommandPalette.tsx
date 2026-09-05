@@ -258,7 +258,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask Chronos AI anything, or select a command below..."
-            className="w-full bg-transparent text-background placeholder-white/40 font-medium text-base focus:outline-none"
+            className="w-full bg-transparent text-foreground placeholder-white/40 font-medium text-base focus:outline-none"
           />
           {query && (
             <button

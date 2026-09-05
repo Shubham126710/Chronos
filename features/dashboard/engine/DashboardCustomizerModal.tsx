@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, RotateCcw, Save, Check } from "lucide-react";
 import clsx from "clsx";
+import { createPortal } from "react-dom";
 import { WIDGET_CATALOG } from "./WidgetCatalogModal";
 
 interface DashboardCustomizerModalProps {
@@ -42,7 +43,7 @@ export const DashboardCustomizerModal: React.FC<DashboardCustomizerModalProps> =
     }
   };
 
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-[100] flex flex-col font-mono bg-background">
       {/* Modal */}
       <div className="relative w-full h-full flex flex-col">
@@ -144,4 +145,7 @@ export const DashboardCustomizerModal: React.FC<DashboardCustomizerModalProps> =
       </div>
     </div>
   );
+
+  if (typeof window === "undefined") return null;
+  return createPortal(modalContent, document.body);
 };
