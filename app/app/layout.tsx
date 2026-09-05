@@ -22,6 +22,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
+  // Mobile Nav State
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
   useEffect(() => {
     setMounted(true);
 
@@ -93,13 +96,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-screen w-full flex bg-background overflow-hidden text-foreground selection:bg-foreground selection:text-background font-sans relative">
       {/* Sidebar - Premium Black */}
-      <div id="chronos-sidebar" className="relative z-30 flex shrink-0 h-full border-r border-border">
+      {isMobileNavOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
+          onClick={() => setIsMobileNavOpen(false)}
+        />
+      )}
+      <div 
+        id="chronos-sidebar" 
+        className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:relative lg:translate-x-0 ${isMobileNavOpen ? "translate-x-0" : "-translate-x-full"} flex shrink-0 h-full border-r border-border`}
+      >
         <Sidebar 
           activeTab={currentTab} 
-          setActiveTab={(tab) => router.push(`/app/${tab}`)}
+          setActiveTab={(tab) => {
+            router.push(`/app/${tab}`);
+            setIsMobileNavOpen(false);
+          }}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onSignOut={() => signOut({ callbackUrl: "/login" })}
-          onOpenTour={() => setShowTour(true)}
+          onOpenTour={() => {
+            setIsMobileNavOpen(false);
+            setShowTour(true);
+          }}
         />
       </div>
 
@@ -108,6 +126,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <TopNav 
           activeTab={currentTab}
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+          onToggleMobileMenu={() => setIsMobileNavOpen(!isMobileNavOpen)}
         />
         
         <div id="dashboard-canvas" className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">

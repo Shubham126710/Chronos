@@ -167,7 +167,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
                   key={idx}
                   href={`#${item.id}`}
                   onClick={() => setIsMenuOpen(false)}
-                  className="text-4xl sm:text-6xl md:text-7xl font-medium tracking-tight hover:text-foreground/60 transition-colors border-b border-border/30 pb-4 flex items-baseline gap-4 group"
+                  className="text-3xl sm:text-5xl md:text-7xl font-medium tracking-tight hover:text-foreground/60 transition-colors border-b border-border/30 pb-4 flex items-baseline gap-4 group"
                 >
                   <span className="text-sm font-mono text-foreground/40 group-hover:text-foreground/60 transition-colors">0{idx + 1}</span>
                   {item.label}
@@ -223,8 +223,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/50">
               [ 02 ] HOW CHRONOS WORKS
             </span>
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight max-w-3xl leading-[1.1]">
-              traditional productivity tools are static databases. <br/>
+            <h2 className="text-3xl sm:text-5xl lg:text-6xl font-medium tracking-tight max-w-3xl leading-[1.1]">
+              traditional productivity tools are static databases. <br className="hidden sm:block" />
               chronos is an active engine.
             </h2>
           </div>
@@ -267,7 +267,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             <span className="text-[10px] font-mono uppercase tracking-widest text-background/50 mb-8">
               [ 03 ] ADAPTIVE INTELLIGENCE
             </span>
-            <h2 className="text-5xl sm:text-7xl lg:text-8xl font-medium tracking-tighter leading-[0.9] max-w-5xl">
+            <h2 className="text-4xl sm:text-6xl lg:text-8xl font-medium tracking-tighter leading-[0.9] max-w-5xl">
               chronos takes your intent, acts on it, and recovers from disruptions automatically.
             </h2>
           </div>
@@ -388,7 +388,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
         <div className="max-w-[90vw] mx-auto w-full relative">
           
           <div className="flex flex-col items-start gap-12">
-            <h2 className="text-6xl sm:text-8xl font-medium tracking-tighter leading-[0.9]">
+            <h2 className="text-5xl sm:text-7xl lg:text-8xl font-medium tracking-tighter leading-[0.9]">
               system<br/>
               pricing<br/>
               access.
@@ -442,7 +442,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
           
           {/* Massive Branding */}
           <div className="mb-24 flex flex-col">
-            <h2 className="text-[12vw] leading-[0.8] font-medium tracking-tighter mix-blend-difference mb-8">
+            <h2 className="text-7xl sm:text-[12vw] leading-[0.8] font-medium tracking-tighter mix-blend-difference mb-8">
               CHRONOS.
             </h2>
             <div className="w-full h-[1px] bg-background/20" />

@@ -118,8 +118,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, onSk
           </button>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 p-8 sm:p-12 flex flex-col justify-center relative">
+        <div className="flex-1 p-8 sm:p-12 flex flex-col justify-center relative overflow-y-auto scrollbar-none">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
@@ -127,21 +126,21 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete, onSk
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
-              className="flex flex-col h-full"
+              className="flex flex-col h-full my-auto"
             >
-              <div className="flex items-center gap-4 mb-6">
+              <div className="flex items-center gap-4 mb-6 shrink-0">
                 <div className="p-3 border border-border text-foreground">
                   {step.icon}
                 </div>
                 <h2 className="text-xl sm:text-2xl font-bold uppercase tracking-widest">{step.title}</h2>
               </div>
               
-              <p className="text-foreground/70 leading-relaxed text-sm sm:text-base max-w-lg mb-8 uppercase tracking-wider">
+              <p className="text-foreground/70 leading-relaxed text-sm sm:text-base max-w-lg mb-8 uppercase tracking-wider shrink-0">
                 {step.content}
               </p>
 
               {isLast && (
-                <div className="flex flex-col gap-3 mt-4">
+                <div className="flex flex-col gap-3 mt-4 shrink-0">
                   {GOAL_OPTIONS.map(goal => (
                     <button
                       key={goal}

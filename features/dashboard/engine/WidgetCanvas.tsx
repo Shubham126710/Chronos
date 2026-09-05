@@ -357,22 +357,22 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
   return (
     <div className="w-full space-y-8 relative z-10 pb-20 p-4 sm:p-8">
       {/* Top Workspace Bar / Editorial Hero */}
-      <div className="flex flex-col xl:flex-row items-start justify-between gap-12 pb-12 pt-8">
-        <div className="max-w-3xl">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-foreground/50 mb-6">
+      <div className="flex flex-col xl:flex-row items-start justify-between gap-8 pb-12 pt-8">
+        <div className="max-w-3xl w-full">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-foreground/50 mb-6 break-words">
             EXECUTIVE DASHBOARD // {dashboardData?.user?.name || "SYSTEM"}
           </div>
-          <h1 className="text-3xl sm:text-5xl font-normal text-foreground leading-[1.1] tracking-tight mb-8">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-normal text-foreground leading-[1.1] tracking-tight mb-8">
             {dashboardData?.stats?.activeTasks && dashboardData.stats.activeTasks > 0 ? (
               <>
-                you have <span className="text-foreground/60 italic">{dashboardData.stats.activeTasks}</span> active tasks<br />
-                remaining for today if you begin<br />
+                you have <span className="text-foreground/60 italic">{dashboardData.stats.activeTasks}</span> active tasks<br className="hidden sm:block" />
+                remaining for today if you begin<br className="hidden sm:block" />
                 with your next focus block.
               </>
             ) : (
               <>
-                all systems nominal.<br />
-                you are currently operating at<br />
+                all systems nominal.<br className="hidden sm:block" />
+                you are currently operating at<br className="hidden sm:block" />
                 <span className="text-foreground/60 italic">peak efficiency.</span>
               </>
             )}
@@ -390,9 +390,9 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
         </div>
 
         {/* Workspace Switcher & Actions */}
-        <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto justify-between xl:justify-end">
+        <div className="flex flex-wrap items-center gap-4 w-full xl:w-auto justify-start xl:justify-end">
           {/* Workspaces */}
-          <div className="flex items-center gap-1 overflow-x-auto max-w-full scrollbar-none border border-border p-1">
+          <div className="flex items-center gap-1 overflow-x-auto max-w-[calc(100vw-32px)] scrollbar-none border border-border p-1">
             {layouts.map((layout) => (
               <button
                 key={layout.id}
@@ -410,14 +410,14 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
             ))}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-2 sm:mt-0 w-full sm:w-auto">
             {/* Customize Button */}
             <button
               onClick={() => setIsCustomizerOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-border hover:bg-surface-hover text-foreground font-medium text-[11px] font-mono uppercase tracking-widest transition-colors shrink-0"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 border border-border hover:bg-surface-hover text-foreground font-medium text-[11px] font-mono uppercase tracking-widest transition-colors shrink-0"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Customize</span>
+              <span>Customize</span>
             </button>
             
             {/* Add Module Button */}
@@ -425,10 +425,10 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
               <button 
                 id="add-module-btn"
                 onClick={() => setIsCatalogOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-[9px] uppercase tracking-widest text-foreground/40 hover:text-foreground hover:bg-surface-hover transition-colors font-mono border border-transparent hover:border-border"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3 py-1.5 text-[9px] uppercase tracking-widest text-foreground/40 hover:text-foreground hover:bg-surface-hover transition-colors font-mono border border-transparent hover:border-border"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Add Module ({widgets.length}/10)</span>
+                <span>Add Module ({widgets.length}/10)</span>
               </button>
             )}
           </div>

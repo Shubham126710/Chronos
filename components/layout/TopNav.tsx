@@ -3,13 +3,15 @@
 import React, { useState, useEffect } from "react";
 import { TabType } from "./Sidebar";
 import { format } from "date-fns";
+import { Menu } from "lucide-react";
 
 interface TopNavProps {
   activeTab: TabType;
   onOpenCommandPalette: () => void;
+  onToggleMobileMenu: () => void;
 }
 
-export const TopNav: React.FC<TopNavProps> = ({ activeTab, onOpenCommandPalette }) => {
+export const TopNav: React.FC<TopNavProps> = ({ activeTab, onOpenCommandPalette, onToggleMobileMenu }) => {
   const [time, setTime] = useState<Date>(new Date());
   const [weatherAlert, setWeatherAlert] = useState("SCANNING...");
   const [isAlertCritical, setIsAlertCritical] = useState(false);
@@ -98,9 +100,16 @@ export const TopNav: React.FC<TopNavProps> = ({ activeTab, onOpenCommandPalette 
           INPUT [⌘K]
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="hidden sm:flex items-center gap-2">
           <span className="text-foreground">SYSTEM ACTIVE</span>
         </div>
+
+        <button 
+          onClick={onToggleMobileMenu}
+          className="lg:hidden p-1 text-foreground/50 hover:text-foreground transition-colors"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
       </div>
     </header>
   );
