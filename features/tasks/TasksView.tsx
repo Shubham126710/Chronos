@@ -6,7 +6,7 @@ import {
   Sparkles, CheckCircle2, Clock, Calendar, Tag, AlertCircle, 
   Plus, Filter, LayoutList, LayoutGrid, ArrowUpRight, 
   RefreshCw, Layers, CheckSquare, ChevronRight, MoreHorizontal,
-  Flame, Zap, CornerDownRight
+  Flame, Zap, CornerDownRight, FileText
 } from "lucide-react";
 
 
@@ -91,6 +91,26 @@ export const TasksView: React.FC = () => {
             className="flex-1 sm:flex-initial px-4 py-2 hover:text-foreground text-foreground/50 transition-colors flex items-center justify-center gap-2"
           >
             <span>{isPrioritizing ? "[ AI SORTING... ]" : "[ AI PRIORITIZE ]"}</span>
+          </button>
+
+          {/* Save to Notion Button */}
+          <button
+            onClick={() => {
+              window.dispatchEvent(
+                new KeyboardEvent("keydown", {
+                  key: "k",
+                  metaKey: true,
+                  bubbles: true,
+                })
+              );
+              // Small delay to let modal open, then we could ideally pass a context, 
+              // but for now relying on the user to type or select the prompt.
+              // We'll add this specific prompt to the CommandPalette quick prompts.
+            }}
+            className="px-4 py-2 text-foreground/70 hover:text-foreground border border-foreground/30 hover:border-foreground transition-all flex items-center gap-1.5"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>[ SAVE TO NOTION ]</span>
           </button>
 
           {/* Add Task Button */}

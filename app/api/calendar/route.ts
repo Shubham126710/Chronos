@@ -126,7 +126,9 @@ export async function GET(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, data: allEvents });
+    const isGoogleConnected = googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken;
+
+    return NextResponse.json({ success: true, data: allEvents, isGoogleConnected: !!isGoogleConnected });
   } catch (error) {
     console.error("GET /api/calendar error:", error);
     return NextResponse.json({ success: false, message: "Failed to fetch calendar events" }, { status: 500 });

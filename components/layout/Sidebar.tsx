@@ -2,6 +2,8 @@
 
 import React from "react";
 import { LogOut } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useQuery } from "@tanstack/react-query";
 
 export type TabType = "dashboard" | "tasks" | "calendar" | "goals" | "habits" | "projects" | "notes" | "analytics" | "integrations";
 
@@ -20,6 +22,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSignOut,
   onOpenTour,
 }) => {
+  const { data: session } = useSession();
+  const userName = session?.user?.name || "USER";
+  const userEmailPrefix = session?.user?.email ? session.user.email.split("@")[0] : "UNKNOWN";
+
+  const { data: analyticsData } = useQuery({
+    queryKey: ["sidebar-analytics"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics");
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json.data;
+    },
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  const streak = analyticsData?.habitStreak ?? 0;
+  const efficiency = analyticsData?.productivityScore ?? 0;
+
   const navItems: { id: TabType; label: string }[] = [
     { id: "dashboard", label: "DASHBOARD" },
     { id: "tasks", label: "TASKS" },
@@ -89,11 +109,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex flex-col gap-2 mb-6 text-[9px] uppercase tracking-widest">
           <div className="flex items-center justify-between">
             <span className="text-foreground/50">STREAK</span>
-            <span className="text-foreground">14 DAYS</span>
+            <span className="text-foreground">{streak} DAYS</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-foreground/50">EFFICIENCY</span>
-            <span className="text-foreground">94/100</span>
+            <span className="text-foreground">{efficiency}/100</span>
           </div>
         </div>
 
@@ -101,8 +121,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex flex-col gap-4 pt-4 border-t border-border">
           <div className="flex items-center justify-between">
             <div className="flex flex-col gap-0.5">
-              <span className="text-[10px] font-medium text-foreground tracking-widest uppercase">ALEX VANCE</span>
-              <span className="text-[9px] text-foreground/40 tracking-widest uppercase">USER.ALEX</span>
+              <span className="text-[10px] font-medium text-foreground tracking-widest uppercase">{userName}</span>
+              <span className="text-[9px] text-foreground/40 tracking-widest uppercase">{userEmailPrefix}</span>
             </div>
             <button 
               onClick={onSignOut}

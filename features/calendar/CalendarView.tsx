@@ -13,7 +13,7 @@ import {
 import { useCalendar, TimeBlock } from "./api/useCalendar";
 
 export const CalendarView: React.FC = () => {
-  const { blocks: fetchedBlocks, isLoading } = useCalendar(new Date().toISOString(), "day");
+  const { blocks: fetchedBlocks, isGoogleConnected, isLoading } = useCalendar(new Date().toISOString(), "day");
   const blocks = fetchedBlocks || [];
 
   const timeSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
@@ -60,6 +60,21 @@ export const CalendarView: React.FC = () => {
         </div>
       </div>
 
+      {!isLoading && isGoogleConnected === false && (
+        <div className="w-full p-4 border border-dashed border-[#4285F4]/50 bg-[#4285F4]/5 flex items-center justify-between rounded-lg">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-[#4285F4]" />
+            <div>
+              <p className="text-xs font-bold text-foreground">Google Calendar not connected</p>
+              <p className="text-[10px] text-foreground/60 uppercase tracking-widest mt-0.5">Connect your account to sync external events automatically.</p>
+            </div>
+          </div>
+          <a href="/app/integrations" className="text-[10px] px-4 py-2 border border-[#4285F4]/50 text-[#4285F4] hover:bg-[#4285F4] hover:text-white transition-colors uppercase tracking-widest font-bold">
+            Connect Google
+          </a>
+        </div>
+      )}
+
       {/* DAY VIEW SCHEDULE GRID */}
       <div className="font-mono text-foreground text-xs border border-border">
         <div className="grid grid-cols-12 border-b border-border bg-border-subtle p-2 text-[10px] uppercase tracking-widest text-foreground/60">
@@ -82,7 +97,9 @@ export const CalendarView: React.FC = () => {
                   <div className="col-span-10 sm:col-span-11 p-2 sm:p-3 relative flex items-center">
                     {matchingBlock ? (
                       <div className={`w-full p-3 border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
-                          matchingBlock.category === "DeepWork"
+                          matchingBlock.isGoogleEvent
+                            ? "border-[#4285F4]/50 text-[#4285F4] bg-[#4285F4]/5"
+                            : matchingBlock.category === "DeepWork"
                             ? "border-foreground text-foreground bg-foreground/5"
                             : matchingBlock.category === "Buffer"
                             ? "border-border border-dashed text-foreground/60"
@@ -94,13 +111,13 @@ export const CalendarView: React.FC = () => {
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap text-[10px] uppercase tracking-widest text-foreground/50">
                             <span className="font-bold text-foreground/80">
-                              [{matchingBlock.category === "DeepWork" ? "DEEP WORK" : matchingBlock.category.toUpperCase()}]
+                              [{matchingBlock.isGoogleEvent ? "GOOGLE CALENDAR" : matchingBlock.category === "DeepWork" ? "DEEP WORK" : matchingBlock.category.toUpperCase()}]
                             </span>
                             <span>
                               {matchingBlock.startTime} - {matchingBlock.endTime}
                             </span>
-                            {matchingBlock.isSynced && (
-                              <span>[ GCAL SYNCED ]</span>
+                            {(matchingBlock.isSynced || matchingBlock.isGoogleEvent) && (
+                              <span className={matchingBlock.isGoogleEvent ? "text-[#4285F4]/80" : ""}>[ GCAL SYNCED ]</span>
                             )}
                           </div>
                           <h4 className="text-sm tracking-wider text-foreground uppercase">{matchingBlock.title}</h4>

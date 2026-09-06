@@ -24,6 +24,8 @@ import { NotesWidget } from "../widgets/NotesWidget";
 import { ProjectsWidget } from "../widgets/ProjectsWidget";
 import { AnalyticsWidget } from "../widgets/AnalyticsWidget";
 import { QuickCaptureWidget } from "../widgets/QuickCaptureWidget";
+import { NotionWidget } from "../widgets/NotionWidget";
+import { GmailWidget } from "../widgets/GmailWidget";
 
 import { DashboardCustomizerModal } from "./DashboardCustomizerModal";
 
@@ -334,6 +336,10 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
         return <AnalyticsWidget />;
       case "QUICK_CAPTURE":
         return <QuickCaptureWidget />;
+      case "NOTION":
+        return <NotionWidget />;
+      case "GMAIL":
+        return <GmailWidget />;
       default:
         return (
           <div className="p-4 text-center text-xs text-foreground/50">

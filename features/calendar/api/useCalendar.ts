@@ -5,8 +5,10 @@ export interface TimeBlock {
   title: string;
   startTime: string; // HH:mm format for day view
   endTime: string;
-  category: "DeepWork" | "Meeting" | "Buffer" | "Wellness";
+  category: "DeepWork" | "Meeting" | "Buffer" | "Wellness" | "EXTERNAL";
   isSynced: boolean;
+  isGoogleEvent?: boolean;
+  color?: string;
   alert?: string;
 }
 
@@ -16,14 +18,14 @@ export function useCalendar(dateStr?: string, view?: string) {
   if (dateStr) queryParam.append("date", dateStr);
   if (view) queryParam.append("view", view);
 
-  const { data: blocks, isLoading, error } = useQuery<TimeBlock[]>({
+  const { data, isLoading, error } = useQuery<{ blocks: TimeBlock[], isGoogleConnected: boolean }>({
     queryKey: ["calendar", dateStr, view],
     queryFn: async () => {
       const res = await fetch(`/api/calendar?${queryParam.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch calendar events");
       const json = await res.json();
       
-      return json.data.map((event: any): TimeBlock => {
+      const mappedBlocks = json.data.map((event: any): TimeBlock => {
         // Format ISO Date to HH:mm string for the frontend view
         const start = new Date(event.startTime);
         const end = new Date(event.endTime);
@@ -38,15 +40,24 @@ export function useCalendar(dateStr?: string, view?: string) {
           endTime: formatTime(end),
           category: (event.category === "FOCUS" ? "DeepWork" : 
                     event.category === "MEETING" ? "Meeting" : 
-                    event.category === "WELLNESS" ? "Wellness" : "Buffer") as any,
+                    event.category === "WELLNESS" ? "Wellness" : 
+                    event.category === "EXTERNAL" ? "EXTERNAL" : "Buffer") as any,
           isSynced: !!event.googleEventId,
+          isGoogleEvent: !!event.isGoogleEvent,
+          color: event.color,
         };
       });
+
+      return {
+        blocks: mappedBlocks,
+        isGoogleConnected: json.isGoogleConnected,
+      };
     },
   });
 
   return {
-    blocks,
+    blocks: data?.blocks,
+    isGoogleConnected: data?.isGoogleConnected,
     isLoading,
     error,
   };

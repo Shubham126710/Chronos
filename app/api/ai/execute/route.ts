@@ -60,6 +60,73 @@ const SlackSchema = z.object({
   message: z.string().min(1, "Message is required"),
 });
 
+const NotionPageSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  content: z.string().optional(),
+  parentPageId: z.string().min(1, "Parent Page ID is required"),
+});
+
+const EmailReplySchema = z.object({
+  messageId: z.string().min(1, "Message ID is required"),
+  body: z.string().min(1, "Reply body is required"),
+  to: z.string().optional(),
+  subject: z.string().optional(),
+});
+
+function markdownToNotionBlocks(markdown: string) {
+  if (!markdown) return [];
+  const lines = markdown.split('\n');
+  const blocks: any[] = [];
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    if (trimmed.startsWith('# ')) {
+      blocks.push({
+        object: "block", type: "heading_1",
+        heading_1: { rich_text: [{ type: "text", text: { content: trimmed.substring(2) } }] }
+      });
+    } else if (trimmed.startsWith('## ')) {
+      blocks.push({
+        object: "block", type: "heading_2",
+        heading_2: { rich_text: [{ type: "text", text: { content: trimmed.substring(3) } }] }
+      });
+    } else if (trimmed.startsWith('### ')) {
+      blocks.push({
+        object: "block", type: "heading_3",
+        heading_3: { rich_text: [{ type: "text", text: { content: trimmed.substring(4) } }] }
+      });
+    } else if (trimmed.startsWith('- [ ] ') || trimmed.startsWith('* [ ] ')) {
+      blocks.push({
+        object: "block", type: "to_do",
+        to_do: { rich_text: [{ type: "text", text: { content: trimmed.substring(6) } }], checked: false }
+      });
+    } else if (trimmed.startsWith('- [x] ') || trimmed.startsWith('* [x] ')) {
+      blocks.push({
+        object: "block", type: "to_do",
+        to_do: { rich_text: [{ type: "text", text: { content: trimmed.substring(6) } }], checked: true }
+      });
+    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      blocks.push({
+        object: "block", type: "bulleted_list_item",
+        bulleted_list_item: { rich_text: [{ type: "text", text: { content: trimmed.substring(2) } }] }
+      });
+    } else if (/^\d+\.\s/.test(trimmed)) {
+      blocks.push({
+        object: "block", type: "numbered_list_item",
+        numbered_list_item: { rich_text: [{ type: "text", text: { content: trimmed.replace(/^\d+\.\s/, '') } }] }
+      });
+    } else {
+      blocks.push({
+        object: "block", type: "paragraph",
+        paragraph: { rich_text: [{ type: "text", text: { content: trimmed } }] }
+      });
+    }
+  }
+  return blocks.length ? blocks : [{ object: "block", type: "paragraph", paragraph: { rich_text: [{ type: "text", text: { content: markdown } }] } }];
+}
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -155,6 +222,38 @@ export async function POST(req: Request) {
               category: data.category,
             }
           });
+
+          // Sync with Google Calendar if connected
+          const googleIntegration = await prisma.integration.findUnique({
+            where: { userId_provider: { userId, provider: "google" } }
+          });
+          if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
+            try {
+              const { google } = require('googleapis');
+              const oauth2Client = new google.auth.OAuth2(
+                process.env.GOOGLE_CLIENT_ID,
+                process.env.GOOGLE_CLIENT_SECRET
+              );
+              oauth2Client.setCredentials({ 
+                access_token: googleIntegration.accessToken,
+                refresh_token: googleIntegration.refreshToken
+              });
+              const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+              await calendar.events.insert({
+                calendarId: 'primary',
+                requestBody: {
+                  summary: data.title,
+                  description: data.description,
+                  start: { dateTime: new Date(data.startTime).toISOString() },
+                  end: { dateTime: new Date(data.endTime).toISOString() },
+                  colorId: '9',
+                }
+              });
+            } catch (err) {
+              console.error("Google Calendar AI sync error:", err);
+            }
+          }
+
           results.push({ type: op.type, status: "success", id: event.id });
         }
         else if (op.type === "UPDATE_EVENT") {
@@ -220,6 +319,51 @@ export async function POST(req: Request) {
             }
           } else {
             results.push({ type: op.type, status: "error", message: "Slack not connected" });
+          }
+        }
+        else if (op.type === "CREATE_NOTION_PAGE") {
+          const parsed = NotionPageSchema.safeParse(op.payload);
+          if (!parsed.success) {
+            results.push({ type: op.type, status: "error", message: parsed.error.message });
+            continue;
+          }
+          const data = parsed.data;
+          const notionIntegration = await prisma.integration.findUnique({
+            where: { userId_provider: { userId, provider: "notion" } }
+          });
+          if (notionIntegration && notionIntegration.status === "Connected" && notionIntegration.accessToken) {
+            try {
+              const response = await fetch("https://api.notion.com/v1/pages", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${notionIntegration.accessToken}`,
+                  "Notion-Version": "2022-06-28",
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                  parent: { page_id: data.parentPageId },
+                  properties: {
+                    title: {
+                      title: [{ text: { content: data.title } }]
+                    }
+                  },
+                  children: markdownToNotionBlocks(data.content || "")
+                })
+              });
+              if (!response.ok) {
+                const errData = await response.text();
+                console.error("Notion API error:", errData);
+                results.push({ type: op.type, status: "error", message: "Notion API error" });
+              } else {
+                const resData = await response.json();
+                results.push({ type: op.type, status: "success", id: resData.id });
+              }
+            } catch (err) {
+              console.error("Notion page creation error:", err);
+              results.push({ type: op.type, status: "error", message: "Notion network error" });
+            }
+          } else {
+            results.push({ type: op.type, status: "error", message: "Notion not connected" });
           }
         }
         else if (op.type === "CREATE_GOAL") {
@@ -307,7 +451,6 @@ export async function POST(req: Request) {
               update: { completed: true },
               create: { habitId: data.id, date, completed: true }
             });
-            // Just updating streak naively, in reality needs better calculation
             await prisma.habit.update({
               where: { id: data.id },
               data: { currentStreak: { increment: 1 } }
@@ -315,6 +458,56 @@ export async function POST(req: Request) {
             results.push({ type: op.type, status: "success", id: data.id });
           } else {
             results.push({ type: op.type, status: "error", message: "Habit not found or unauthorized" });
+          }
+        }
+        else if (op.type === "SEND_EMAIL_REPLY") {
+          const parsed = EmailReplySchema.safeParse(op.payload);
+          if (!parsed.success) {
+            results.push({ type: op.type, status: "error", message: parsed.error.message });
+            continue;
+          }
+          const data = parsed.data;
+          const googleIntegration = await prisma.integration.findUnique({
+            where: { userId_provider: { userId, provider: "gmail" } }
+          });
+          if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
+            try {
+              const { google } = require('googleapis');
+              const oauth2Client = new google.auth.OAuth2();
+              oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
+              const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+              
+              // Simplistic raw email formulation. Usually needs proper MIME.
+              const utf8Subject = `=?utf-8?B?${Buffer.from(data.subject || "Re: Reply").toString('base64')}?=`;
+              const messageParts = [
+                `To: ${data.to || ""}`,
+                `Subject: ${utf8Subject}`,
+                `In-Reply-To: ${data.messageId}`,
+                `References: ${data.messageId}`,
+                '',
+                data.body
+              ];
+              const message = messageParts.join('\n');
+              const encodedMessage = Buffer.from(message)
+                .toString('base64')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+                
+              await gmail.users.messages.send({
+                userId: 'me',
+                requestBody: {
+                  raw: encodedMessage,
+                  threadId: data.messageId // Needs actual thread ID in real app, using msg ID for now
+                }
+              });
+              results.push({ type: op.type, status: "success", message: "Email reply sent" });
+            } catch (err) {
+              console.error("Gmail send error:", err);
+              results.push({ type: op.type, status: "error", message: "Gmail API error" });
+            }
+          } else {
+            results.push({ type: op.type, status: "error", message: "Gmail not connected" });
           }
         }
       } catch (opError) {

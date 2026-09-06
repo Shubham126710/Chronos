@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Link2, Unlink, AlertCircle, RefreshCw, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getAllIntegrations } from "../../../lib/integrations/config";
 
 export default function IntegrationsPage() {
   const queryClient = useQueryClient();
@@ -18,32 +19,7 @@ export default function IntegrationsPage() {
     }
   });
 
-  const availableIntegrations = [
-    {
-      id: "google",
-      name: "Google Calendar",
-      description: "Sync events and AI scheduled blocks.",
-      icon: "https://www.google.com/images/branding/product/1x/calendar_2020q4_48dp.png"
-    },
-    {
-      id: "slack",
-      name: "Slack",
-      description: "Send status updates and receive task notifications.",
-      icon: "https://cdn.worldvectorlogo.com/logos/slack-new-logo.svg"
-    },
-    {
-      id: "spotify",
-      name: "Spotify",
-      description: "Control playback and link focus sessions.",
-      icon: "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png"
-    },
-    {
-      id: "zoom",
-      name: "Zoom",
-      description: "Fetch upcoming meetings for your dashboard.",
-      icon: "https://st1.zoom.us/static/6.3.26848/image/new/ZoomLogo.png"
-    }
-  ];
+  const availableIntegrations = getAllIntegrations();
 
   const handleConnect = (providerId: string) => {
     window.location.href = `/api/integrations/${providerId}/auth`;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateText, tool } from "ai";
-import { google } from "@ai-sdk/google";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import { prisma } from "../../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
@@ -45,6 +45,7 @@ export async function POST(req: Request) {
       2. If asked to modify, create, or delete data, use the 'respondToUser' tool to propose the operations. 
       3. The user MUST confirm all operations in the UI. You do not execute mutations yourself, you just propose them.
       4. You MUST end your turn by calling the 'respondToUser' tool. Never respond in plain text to the user.
+      5. CONTEXTUAL AWARENESS: If the user asks to plan their day, prepare for tomorrow, or what's important, you must combine data from getTasks, getCalendarEvents, and searchGmail to provide a comprehensive summary and proposed schedule/actions. Connect tasks with relevant emails and calendar availability.
     `;
 
     // Define tools
@@ -86,7 +87,45 @@ export async function POST(req: Request) {
             },
             take: 50
           });
-          return events.map(e => ({ id: e.id, title: e.title, startTime: e.startTime, endTime: e.endTime }));
+          
+          let allEvents = events.map(e => ({ id: e.id, title: e.title, startTime: e.startTime, endTime: e.endTime, category: e.category, isGoogleEvent: false }));
+
+          // Try to fetch Google Calendar Events
+          const googleIntegration = await prisma.integration.findUnique({
+            where: { userId_provider: { userId, provider: "google" } }
+          });
+          if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
+            try {
+              const { google } = require('googleapis');
+              const oauth2Client = new google.auth.OAuth2();
+              oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
+              const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+              
+              const gRes = await calendar.events.list({
+                calendarId: 'primary',
+                timeMin: new Date(startDate).toISOString(),
+                timeMax: new Date(endDate).toISOString(),
+                maxResults: 50,
+                singleEvents: true,
+                orderBy: 'startTime',
+              });
+              
+              const gEvents = gRes.data.items?.map((item: any) => ({
+                id: `gcal-${item.id}`,
+                title: item.summary || "Busy",
+                startTime: new Date(item.start?.dateTime || item.start?.date).toISOString(),
+                endTime: new Date(item.end?.dateTime || item.end?.date).toISOString(),
+                category: "EXTERNAL",
+                isGoogleEvent: true
+              })) || [];
+              
+              allEvents = [...allEvents, ...gEvents].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+            } catch (err) {
+              console.error("Google Calendar AI sync error:", err);
+            }
+          }
+          
+          return allEvents;
         }
       }),
       getGoals: tool({
@@ -141,6 +180,123 @@ export async function POST(req: Request) {
           }
         }
       }),
+      searchNotion: tool({
+        description: "Search the user's connected Notion workspace for pages or databases.",
+        parameters: z.object({
+          query: z.string().describe("The search query string")
+        }),
+        // @ts-ignore
+        execute: async (args: any) => {
+          const { query } = args;
+          const notionIntegration = await prisma.integration.findUnique({
+            where: { userId_provider: { userId, provider: "notion" } }
+          });
+          if (!notionIntegration || notionIntegration.status !== "Connected" || !notionIntegration.accessToken) {
+            return { error: "Notion is not connected. User must connect Notion first." };
+          }
+          try {
+            const response = await fetch("https://api.notion.com/v1/search", {
+              method: "POST",
+              headers: { 
+                "Authorization": `Bearer ${notionIntegration.accessToken}`,
+                "Notion-Version": "2022-06-28",
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ query, page_size: 5 })
+            });
+            if (!response.ok) return { error: "Failed to fetch from Notion API" };
+            const data = await response.json();
+            return data.results?.map((r: any) => ({
+              id: r.id,
+              url: r.url
+            })) || [];
+          } catch (e) {
+            return { error: "Notion search failed" };
+          }
+        }
+      }),
+      searchGmail: tool({
+        description: "Search the user's Gmail inbox for emails.",
+        parameters: z.object({
+          query: z.string().describe("The search query (e.g. 'is:unread', 'from:john', 'subject:project')"),
+          maxResults: z.number().optional().default(5)
+        }),
+        // @ts-ignore
+        execute: async (args: any) => {
+          const { query, maxResults } = args;
+          const googleIntegration = await prisma.integration.findUnique({
+            where: { userId_provider: { userId, provider: "gmail" } }
+          });
+          if (!googleIntegration || googleIntegration.status !== "Connected" || !googleIntegration.accessToken) {
+            return { error: "Gmail is not connected. User must connect Gmail first." };
+          }
+          try {
+            const { google } = require('googleapis');
+            const oauth2Client = new google.auth.OAuth2();
+            oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
+            const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+            
+            const res = await gmail.users.messages.list({ userId: 'me', q: query, maxResults });
+            const messages = res.data.messages || [];
+            
+            const detailedMessages = await Promise.all(
+              messages.map(async (msg: any) => {
+                const msgDetails = await gmail.users.messages.get({
+                  userId: 'me', id: msg.id, format: 'metadata', metadataHeaders: ['Subject', 'From', 'Date']
+                });
+                const headers = msgDetails.data.payload.headers;
+                return {
+                  id: msgDetails.data.id,
+                  subject: headers.find((h: any) => h.name === 'Subject')?.value || 'No Subject',
+                  from: headers.find((h: any) => h.name === 'From')?.value || 'Unknown Sender',
+                  snippet: msgDetails.data.snippet
+                };
+              })
+            );
+            return detailedMessages;
+          } catch (e) {
+            return { error: "Gmail search failed" };
+          }
+        }
+      }),
+      readEmail: tool({
+        description: "Read the full content of a specific email by its ID.",
+        parameters: z.object({
+          messageId: z.string().describe("The Gmail message ID")
+        }),
+        // @ts-ignore
+        execute: async (args: any) => {
+          const { messageId } = args;
+          const googleIntegration = await prisma.integration.findUnique({
+            where: { userId_provider: { userId, provider: "gmail" } }
+          });
+          if (!googleIntegration || googleIntegration.status !== "Connected" || !googleIntegration.accessToken) {
+            return { error: "Gmail is not connected." };
+          }
+          try {
+            const { google } = require('googleapis');
+            const oauth2Client = new google.auth.OAuth2();
+            oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
+            const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+            
+            const msgDetails = await gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' });
+            // Very simplified body extraction (in reality needs MIME parsing)
+            let body = msgDetails.data.snippet;
+            const parts = msgDetails.data.payload?.parts;
+            if (parts && parts.length > 0) {
+              const textPart = parts.find((p: any) => p.mimeType === 'text/plain');
+              if (textPart && textPart.body?.data) {
+                body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
+              }
+            } else if (msgDetails.data.payload?.body?.data) {
+               body = Buffer.from(msgDetails.data.payload.body.data, 'base64').toString('utf-8');
+            }
+            return { id: messageId, body: body.substring(0, 1000) }; // Truncate to save tokens
+          } catch (e) {
+            return { error: "Gmail read failed" };
+          }
+        }
+      }),
       respondToUser: tool({
         description: "ALWAYS call this tool to deliver your final response to the user. This tool sends the structured UI and proposed database operations to the user for confirmation.",
         parameters: z.object({
@@ -152,9 +308,9 @@ export async function POST(req: Request) {
             type: z.enum([
               "CREATE_TASK", "UPDATE_TASK", "DELETE_TASK", 
               "CREATE_EVENT", "UPDATE_EVENT", "DELETE_EVENT", 
-              "SEND_SLACK_MESSAGE", 
+              "SEND_SLACK_MESSAGE", "CREATE_NOTION_PAGE",
               "CREATE_GOAL", "UPDATE_GOAL", "DELETE_GOAL", 
-              "CREATE_HABIT", "LOG_HABIT"
+              "CREATE_HABIT", "LOG_HABIT", "SEND_EMAIL_REPLY"
             ]),
             payload: z.any().describe("The data payload for the operation (e.g. { title, priority } for CREATE_TASK)")
           })).optional().describe("Array of database operations to propose to the user.")
@@ -170,6 +326,10 @@ export async function POST(req: Request) {
     let currentStep = 0;
     let messages: any[] = [{ role: "user", content: query }];
     let aiResponseData = null;
+
+    const google = createGoogleGenerativeAI({
+      apiKey: process.env.GEMINI_API_KEY,
+    });
 
     while (currentStep < 5) {
       const result = await generateText({

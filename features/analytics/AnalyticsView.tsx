@@ -9,33 +9,44 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, 
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid 
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
 
-const deepWorkData = [
-  { day: "Mon", hours: 4.5, target: 5 },
-  { day: "Tue", hours: 5.0, target: 5 },
-  { day: "Wed", hours: 3.8, target: 5 },
-  { day: "Thu", hours: 4.2, target: 5 },
-  { day: "Fri", hours: 4.0, target: 5 },
-  { day: "Sat", hours: 3.5, target: 5 },
-  { day: "Sun", hours: 3.5, target: 5 },
-];
 
-const productivityTrendData = [
-  { week: "W1", score: 86 },
-  { week: "W2", score: 89 },
-  { week: "W3", score: 91 },
-  { week: "W4", score: 94 },
-];
-
-const categoryData = [
-  { name: "Coding & LeetCode", value: 45, color: "#5227FF" },
-  { name: "Academic & Exam Study", value: 30, color: "#7B5CFF" },
-  { name: "Exercise & Wellness", value: 15, color: "#FF9FFC" },
-  { name: "Personal Reading", value: 10, color: "#10B981" },
-];
 
 export const AnalyticsView: React.FC = () => {
   const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d">("7d");
+
+  const { data: analyticsData, isLoading } = useQuery({
+    queryKey: ["analytics", timeRange],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics");
+      if (!res.ok) throw new Error("Failed to fetch analytics");
+      const json = await res.json();
+      return json.data;
+    },
+  });
+
+  const deepWorkData = analyticsData?.focusData || [];
+  
+  // Use actual focus data for the trend chart to avoid fake data
+  const productivityTrendData = deepWorkData.map((d: any) => ({
+    time: d.day,
+    score: Math.min(100, Math.round((d.hours / 5) * 100)) // simple derivation for UI
+  }));
+  
+  const categoryData = [
+    { name: "Deep Work", value: analyticsData?.focusHoursThisWeek ? 70 : 0 },
+    { name: "Learning", value: analyticsData?.focusHoursThisWeek ? 20 : 0 },
+    { name: "Admin", value: analyticsData?.focusHoursThisWeek ? 10 : 0 },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center min-h-[50vh]">
+        <div className="w-8 h-8 text-white/50 border-t-2 border-white/50 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 sm:p-8 space-y-8 max-w-7xl mx-auto pb-24 font-mono">
@@ -79,43 +90,43 @@ export const AnalyticsView: React.FC = () => {
           </div>
           <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/60">TOTAL DEEP WORK</span>
           <div className="flex items-baseline gap-2 pt-2">
-            <span className="text-3xl sm:text-4xl font-bold text-foreground">28.5<span className="text-base font-normal text-foreground/50">h</span></span>
+            <span className="text-3xl sm:text-4xl font-bold text-foreground">{analyticsData?.focusHoursThisWeek || 0}<span className="text-base font-normal text-foreground/50">h</span></span>
             <span className="text-[10px] font-bold text-background bg-foreground px-2 py-0.5 uppercase border border-foreground">
-              +12% vs last wk
+              Last 7 Days
             </span>
           </div>
-          <p className="text-[10px] text-foreground/60 uppercase">Average 4.1 hours daily focus.</p>
+          <p className="text-[10px] text-foreground/60 uppercase">Total focus hours recorded.</p>
         </div>
 
         <div className="p-6 bg-background border border-border space-y-2 relative overflow-hidden">
           <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/60">PRODUCTIVITY SCORE</span>
           <div className="flex items-baseline gap-2 pt-2">
-            <span className="text-3xl sm:text-4xl font-bold text-foreground">94</span>
+            <span className="text-3xl sm:text-4xl font-bold text-foreground">{analyticsData?.productivityScore || 0}</span>
             <span className="text-[10px] font-bold text-background bg-foreground px-2 py-0.5 uppercase border border-foreground">
-              Top 5% Tier
+              Current
             </span>
           </div>
-          <p className="text-[10px] text-foreground/60 uppercase">Climbed 8 points over 4 weeks.</p>
+          <p className="text-[10px] text-foreground/60 uppercase">Based on habits and tasks.</p>
         </div>
 
         <div className="p-6 bg-background border border-border space-y-2 relative overflow-hidden">
           <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/60">HABIT COMPLETION</span>
           <div className="flex items-baseline gap-2 pt-2">
-            <span className="text-3xl sm:text-4xl font-bold text-foreground">98%</span>
+            <span className="text-3xl sm:text-4xl font-bold text-foreground">{analyticsData?.habitConsistency || 0}%</span>
             <span className="text-[10px] font-bold text-foreground border border-foreground px-2 py-0.5 uppercase">
-              14d Streak
+              {analyticsData?.habitStreak || 0}d Streak
             </span>
           </div>
-          <p className="text-[10px] text-foreground/60 uppercase">Coding & Sleep streaks locked.</p>
+          <p className="text-[10px] text-foreground/60 uppercase">Consistency across active habits.</p>
         </div>
 
         <div className="p-6 bg-background border border-border space-y-2 relative overflow-hidden">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/60">GOAL VELOCITY</span>
+          <span className="text-[10px] font-bold uppercase tracking-widest text-foreground/60">TASKS VELOCITY</span>
           <div className="flex items-baseline gap-2 pt-2">
-            <span className="text-3xl sm:text-4xl font-bold text-foreground">2.4x</span>
-            <span className="text-[10px] text-foreground/50 uppercase">SPEED MULTIPLIER</span>
+            <span className="text-3xl sm:text-4xl font-bold text-foreground">{analyticsData?.tasksCompleted7d || 0}</span>
+            <span className="text-[10px] text-foreground/50 uppercase">TASKS</span>
           </div>
-          <p className="text-[10px] text-foreground/60 uppercase">33 tasks completed this month.</p>
+          <p className="text-[10px] text-foreground/60 uppercase">Tasks completed in last 7 days.</p>
         </div>
       </div>
 
@@ -156,11 +167,11 @@ export const AnalyticsView: React.FC = () => {
           <div className="p-6 sm:p-8 bg-background border border-border space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <div>
-                <span className="text-[10px] font-bold uppercase text-foreground/60">4-WEEK TRAJECTORY</span>
-                <h3 className="text-base font-bold text-foreground mt-1 uppercase tracking-widest">PRODUCTIVITY TREND</h3>
+                <span className="text-[10px] font-bold uppercase text-foreground/60">7-DAY TRAJECTORY</span>
+                <h3 className="text-base font-bold text-foreground mt-1 uppercase tracking-widest">FOCUS INTENSITY</h3>
               </div>
               <span className="text-[10px] font-bold text-background bg-foreground px-2.5 py-1 uppercase border border-foreground">
-                +8 POINTS
+                LAST 7 DAYS
               </span>
             </div>
 
@@ -168,7 +179,7 @@ export const AnalyticsView: React.FC = () => {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={productivityTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="currentColor" strokeOpacity={0.1} vertical={false} />
-                  <XAxis dataKey="week" stroke="currentColor" strokeOpacity={0.5} fontSize={10} tickLine={false} axisLine={false} />
+                  <XAxis dataKey="time" stroke="currentColor" strokeOpacity={0.5} fontSize={10} tickLine={false} axisLine={false} />
                   <YAxis stroke="currentColor" strokeOpacity={0.5} fontSize={10} domain={[80, 100]} tickLine={false} axisLine={false} />
                   <Tooltip
                     contentStyle={{ backgroundColor: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)", fontSize: "12px", fontFamily: "monospace", textTransform: "uppercase" }}

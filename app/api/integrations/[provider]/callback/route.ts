@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
 
-const TOKEN_URLS: Record<string, string> = {
-  google: "https://oauth2.googleapis.com/token",
-  slack: "https://slack.com/api/oauth.v2.access",
-  spotify: "https://accounts.spotify.com/api/token",
-  zoom: "https://zoom.us/oauth/token",
-};
+import { getIntegrationConfig } from "../../../../../lib/integrations/config";
 
 export async function GET(req: Request, { params }: { params: Promise<{ provider: string }> }) {
   try {
@@ -17,6 +12,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ provider
     
     const { provider: providerParam } = await params;
     const provider = providerParam.toLowerCase();
+    const config = getIntegrationConfig(provider);
+
+    if (!config) {
+      return NextResponse.json({ success: false, message: `Unsupported provider: ${provider}` }, { status: 400 });
+    }
 
     if (error) {
       console.error(`OAuth Error for ${provider}:`, error);
@@ -42,49 +42,46 @@ export async function GET(req: Request, { params }: { params: Promise<{ provider
     }
 
     const redirectUri = `${process.env.NEXTAUTH_URL}/api/integrations/${provider}/callback`;
-    const tokenUrl = TOKEN_URLS[provider];
+    const tokenUrl = config.tokenUrl;
     
     // Default structure for token exchange
     const tokenParams = new URLSearchParams({
       grant_type: "authorization_code",
       code,
       redirect_uri: redirectUri,
-      client_id: process.env[`${provider.toUpperCase()}_CLIENT_ID`] || "",
-      client_secret: process.env[`${provider.toUpperCase()}_CLIENT_SECRET`] || "",
+      client_id: process.env[config.clientIdEnv] || "",
+      client_secret: process.env[config.clientSecretEnv] || "",
     });
 
     let headers: Record<string, string> = {
       "Content-Type": "application/x-www-form-urlencoded",
     };
 
-    // Spotify requires Basic Auth for token exchange
-    if (provider === "spotify" || provider === "zoom") {
-      const clientId = process.env[`${provider.toUpperCase()}_CLIENT_ID`] || "";
-      const clientSecret = process.env[`${provider.toUpperCase()}_CLIENT_SECRET`] || "";
+    if (config.requiresBasicAuth) {
+      const clientId = process.env[config.clientIdEnv] || "";
+      const clientSecret = process.env[config.clientSecretEnv] || "";
       headers["Authorization"] = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`;
     }
 
-    // Attempt token exchange only if credentials exist
+    if (!process.env[config.clientIdEnv] || !process.env[config.clientSecretEnv]) {
+      console.error(`Missing OAuth credentials for ${provider} in environment variables.`);
+      return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=missing_credentials`);
+    }
+
     let tokenData = null;
     let newStatus = "Connected";
 
-    if (process.env[`${provider.toUpperCase()}_CLIENT_ID`] && process.env[`${provider.toUpperCase()}_CLIENT_SECRET`]) {
-      const tokenRes = await fetch(tokenUrl, {
-        method: "POST",
-        headers,
-        body: tokenParams.toString(),
-      });
+    const tokenRes = await fetch(tokenUrl, {
+      method: "POST",
+      headers,
+      body: tokenParams.toString(),
+    });
 
-      if (!tokenRes.ok) {
-        console.error(`Failed to exchange token for ${provider}:`, await tokenRes.text());
-        newStatus = "Error";
-      } else {
-        tokenData = await tokenRes.json();
-      }
+    if (!tokenRes.ok) {
+      console.error(`Failed to exchange token for ${provider}:`, await tokenRes.text());
+      newStatus = "Error";
     } else {
-      // If we don't have credentials, we can't exchange the token. Just log it.
-      // This allows the architecture to function without crashing before creds are added.
-      console.warn(`No credentials for ${provider}, skipping token exchange.`);
+      tokenData = await tokenRes.json();
     }
 
     await prisma.integration.upsert({

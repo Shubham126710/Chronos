@@ -3,28 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 import { prisma } from "../../../../../lib/prisma";
 
-const OAUTH_CONFIGS: Record<string, any> = {
-  google: {
-    clientId: process.env.GOOGLE_CLIENT_ID || "",
-    authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-    scopes: ["https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/calendar.readonly"],
-  },
-  slack: {
-    clientId: process.env.SLACK_CLIENT_ID || "",
-    authUrl: "https://slack.com/oauth/v2/authorize",
-    scopes: ["users:read", "channels:read", "chat:write"],
-  },
-  spotify: {
-    clientId: process.env.SPOTIFY_CLIENT_ID || "",
-    authUrl: "https://accounts.spotify.com/authorize",
-    scopes: ["user-read-currently-playing", "user-read-playback-state", "user-modify-playback-state"],
-  },
-  zoom: {
-    clientId: process.env.ZOOM_CLIENT_ID || "",
-    authUrl: "https://zoom.us/oauth/authorize",
-    scopes: ["meeting:read"],
-  },
-};
+import { getIntegrationConfig } from "../../../../../lib/integrations/config";
 
 export async function GET(req: Request, { params }: { params: Promise<{ provider: string }> }) {
   try {
@@ -35,7 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ provider
 
     const { provider: providerParam } = await params;
     const provider = providerParam.toLowerCase();
-    const config = OAUTH_CONFIGS[provider];
+    const config = getIntegrationConfig(provider);
 
     if (!config) {
       return NextResponse.json({ success: false, message: `Unsupported provider: ${provider}` }, { status: 400 });
@@ -65,7 +44,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ provider
     const state = Buffer.from(JSON.stringify({ userId, provider, timestamp: Date.now() })).toString("base64");
 
     const authParams = new URLSearchParams({
-      client_id: config.clientId,
+      client_id: process.env[config.clientIdEnv] || "",
       redirect_uri: redirectUri,
       response_type: "code",
       scope: config.scopes.join(" "),

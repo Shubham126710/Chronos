@@ -15,7 +15,8 @@ import {
   FolderGit2, 
   BarChart3, 
   Zap, 
-  Search
+  Search,
+  Mail
 } from "lucide-react";
 import clsx from "clsx";
 import { createPortal } from "react-dom";
@@ -143,6 +144,28 @@ export const WIDGET_CATALOG: CatalogWidgetMeta[] = [
     theme: "orange",
     badge: "INBOX",
   },
+  {
+    type: "NOTION",
+    title: "Notion Workspace",
+    category: "EXECUTIVE",
+    description: "Search and access your Notion notes and databases directly from Chronos.",
+    icon: <FileText className="w-4 h-4" />,
+    defaultColSpan: 2,
+    defaultRowSpan: 2,
+    theme: "default",
+    badge: "SYNCED",
+  },
+  {
+    type: "GMAIL",
+    title: "Gmail Inbox",
+    category: "EXECUTIVE",
+    description: "Triage your important unread emails directly from your dashboard.",
+    icon: <Mail className="w-4 h-4" />,
+    defaultColSpan: 2,
+    defaultRowSpan: 2,
+    theme: "default",
+    badge: "SYNCED",
+  }
 ];
 
 export interface WidgetCatalogModalProps {

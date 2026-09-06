@@ -10,6 +10,7 @@ export async function GET() {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
     const userId = (session.user as any).id;
+    const dbUser = await prisma.user.findUnique({ where: { id: userId } });
 
     // 1. Compute Productivity Score
     // Formula: Base 50 + (Tasks Completion Rate * 30) + (Habit Consistency * 20)
@@ -95,7 +96,8 @@ export async function GET() {
         focusData,
         habitConsistency,
         tasksCompleted7d: completedTasks,
-        tasksCreated7d: tasks.length
+        tasksCreated7d: tasks.length,
+        habitStreak: dbUser?.habitStreak || 0
       }
     });
 

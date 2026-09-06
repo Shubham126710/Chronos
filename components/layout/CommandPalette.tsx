@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Search, Sparkles, Brain, Clock, CheckCircle2, ArrowRight, 
-  Calendar, Zap, Target, X, Layers, Flame, RefreshCw
+  Calendar, Zap, Target, X, Layers, Flame, RefreshCw, Mail
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -84,9 +84,24 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       icon: <Target className="w-4 h-4 text-foreground" />,
     },
     {
-      title: "“Move low priority tasks to next week.”",
-      subtitle: "De-clutter your current week to maximize deep work.",
-      icon: <Layers className="w-4 h-4 text-foreground" />,
+      title: "“Turn today's tasks into a Notion weekly review.”",
+      subtitle: "Save your active tasks and progress to your connected Notion workspace.",
+      icon: <Sparkles className="w-4 h-4 text-foreground/70" />,
+    },
+    {
+      title: "“Search Notion for my project notes.”",
+      subtitle: "Find your existing documentation and meeting notes seamlessly.",
+      icon: <Search className="w-4 h-4 text-foreground" />,
+    },
+    {
+      title: "“Find the emails I need to respond to today and schedule time to handle them.”",
+      subtitle: "Create time blocks automatically based on your unread important emails.",
+      icon: <Mail className="w-4 h-4 text-foreground/80" />,
+    },
+    {
+      title: "“Plan my day based on my calendar and emails.”",
+      subtitle: "Sync Gmail, Google Calendar, and Chronos Tasks for a unified action plan.",
+      icon: <Calendar className="w-4 h-4 text-[#4285F4]" />,
     },
   ];
 
