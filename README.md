@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="app/icon.svg" alt="Chronos Logo" width="150" />
+  <img src="app/icon.svg" alt="Chronos Logo" width="128" />
+  <h1 align="center">Chronos</h1>
   <p align="center">
-    <br/>
     <strong>A premium, high-performance productivity operating system designed for deep work.</strong>
   </p>
 
@@ -58,35 +58,62 @@ Robust login systems built on top-tier authentication providers, ensuring your d
 ### 6. **Frictionless Onboarding Flow**
 A short, premium, interactive walkthrough designed to introduce new users to the Chronos philosophy. It establishes their first goal, task, and focus session, persisting the state securely through Prisma.
 
-## 🧠 The Experience
+## 📸 Functionality & Usage
 
-Chronos is not just a to-do list; it is a holistic productivity OS. 
-- **The Dashboard** serves as your command center. You can customize the widget layout, placing the most critical metrics (like your overarching goals or daily habit streaks) front and center.
-- **The Workflow** encourages capturing ideas instantly via the Quick Capture widget, processing them later in the Notes or Tasks views, and executing them during scheduled Focus Blocks on the Calendar.
-- **The AI Assistant** acts as your personal Chief of Staff. Instead of generic advice, it performs real mutations on your database—rescheduling tasks, analyzing your focus score, and generating study plans—always asking for your confirmation before executing destructive actions.
+### Landing Page & Hero Section
 
-## 📸 Gallery
+![Hero Section](public/screenshots/1.%20hero.png)
+<p align="center"><em>A sleek landing interface introducing the Chronos productivity suite.</em></p>
 
-<details>
-<summary><b>Click to view UI Screenshots</b></summary>
-<br/>
+### Authentication
 
-![1. Onboarding](public/Screenshots/1.%20onboarding.png)
-*1. A premium, interactive onboarding walkthrough for first-time users.*
+![Login](public/screenshots/2.%20login.png)
+<p align="center"><em>A minimalist login screen designed with security and clean typography in mind.</em></p>
 
-![2. Dashboard Canvas](public/Screenshots/2.%20dashboard.png)
-*2. The customizable central command center featuring dynamic widgets.*
+### Command Center & Dashboard
 
-![3. Command Palette](public/Screenshots/3.%20command-palette.png)
-*3. The AI-powered Command Palette for instant task execution and semantic queries.*
+![Dashboard](public/screenshots/3.%20hero.png)
+<p align="center"><em>The primary workspace with live metrics, quick capture, and customizable widgets.</em></p>
 
-![4. Tasks & Projects](public/Screenshots/4.%20tasks.png)
-*4. Streamlined task and project management interface.*
+### Task Management
 
-![5. Calendar & Time Blocking](public/Screenshots/5.%20calendar.png)
-*5. Dynamic schedule view highlighting focus blocks and cognitive peaks.*
+![Tasks](public/screenshots/4.%20tasks.png)
+<p align="center"><em>Streamlined view to organize, prioritize, and process daily to-dos and project goals.</em></p>
 
-</details>
+### Intelligent Calendar
+
+![Calendar](public/screenshots/5.%20calender.png)
+<p align="center"><em>Interactive calendar supporting time blocking and optimal cognitive peak schedule management.</em></p>
+
+### Habit Tracking
+
+![Habits](public/screenshots/6.%20habits.png)
+<p align="center"><em>Track recurring habits and maintain consistent daily productivity streaks.</em></p>
+
+### Notes & Quick Capture
+
+![Notes](public/screenshots/7.%20notes.png)
+<p align="center"><em>Organized workspace for notes, quick captures, and knowledge management.</em></p>
+
+### Performance & Analytics
+
+![Analytics](public/screenshots/8.%20analytics.png)
+<p align="center"><em>In-depth productivity metrics, focus scores, and progress analytics over time.</em></p>
+
+### Integrations
+
+![Integrations](public/screenshots/9.%20integrations.png)
+<p align="center"><em>Connect your favorite tools and external calendar providers seamlessly.</em></p>
+
+### System Settings
+
+![Settings](public/screenshots/10.%20settings.png)
+<p align="center"><em>Manage your profile preferences, theme parameters, and account controls.</em></p>
+
+### Modular Architecture
+
+![Modules](public/screenshots/11.%20modules.png)
+<p align="center"><em>Configure system modules and extend dashboard capabilities.</em></p>
 
 ## 🛠 Tech Stack
 
