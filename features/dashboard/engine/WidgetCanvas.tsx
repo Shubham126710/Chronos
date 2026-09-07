@@ -458,7 +458,7 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-12 gap-y-0 auto-rows-[minmax(160px,auto)] border-t border-border pt-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 xl:gap-12 gap-y-4 auto-rows-[minmax(160px,auto)] border-t border-border pt-12">
           {widgets.map((w, index) => {
             const meta = getWidgetMeta(w.widgetType);
             return (
@@ -469,7 +469,7 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
                 onDragOver={(e) => handleDragOver(e, index)}
                 onDrop={(e) => handleDrop(e, index)}
                 className={clsx(
-                  "transition-all",
+                  "transition-all min-w-0",
                   dragOverIndex === index && "scale-100 ring-2 ring-foreground",
                   w.colSpan === 1 && "col-span-1",
                   w.colSpan === 2 && "col-span-1 md:col-span-2",
