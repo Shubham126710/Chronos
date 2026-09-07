@@ -41,8 +41,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartFree, onWatchDe
               className="text-4xl sm:text-6xl md:text-8xl lg:text-[110px] font-medium tracking-tighter leading-[0.9] text-foreground max-w-4xl font-sans"
             >
               your time,<br />
-              <span className="text-foreground/40 italic font-light">intelligently<br />
-              organized.</span>
+              intelligently<br />
+              organized.
             </motion.h1>
 
             <motion.div 
