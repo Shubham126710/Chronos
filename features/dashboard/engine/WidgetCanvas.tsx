@@ -351,11 +351,26 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="w-12 h-12 border border-border flex items-center justify-center text-foreground animate-spin">
-          <Sparkles className="w-6 h-6" />
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[400px]">
+        <div className="w-48 h-[1px] bg-border relative overflow-hidden">
+          <motion.div 
+            className="absolute top-0 left-0 h-full bg-foreground"
+            initial={{ width: "0%", left: "0%" }}
+            animate={{ width: ["0%", "50%", "0%"], left: ["0%", "50%", "100%"] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+          />
         </div>
-        <div className="text-sm font-medium text-foreground tracking-wide font-mono uppercase">Initializing System Canvas...</div>
+        <div className="mt-6 flex flex-col items-center gap-3">
+           <div className="flex gap-[3px]">
+             <div className="w-1.5 h-3 bg-foreground animate-pulse" />
+             <div className="w-1.5 h-3 bg-foreground/80 animate-pulse delay-75" />
+             <div className="w-1.5 h-3 bg-foreground/60 animate-pulse delay-150" />
+             <div className="w-1.5 h-3 bg-foreground/40 animate-pulse delay-300" />
+           </div>
+           <div className="text-[10px] font-mono uppercase tracking-widest text-foreground/40">
+             Initializing System Canvas
+           </div>
+        </div>
       </div>
     );
   }

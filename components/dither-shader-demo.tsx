@@ -15,7 +15,7 @@ export default function DitherShaderDemo() {
         primaryColor="#000000"
         secondaryColor="#ffffff"
         threshold={0.5}
-        className="h-32 w-full"
+        className="h-64 lg:h-[280px] w-full"
       />
     </div>
   );

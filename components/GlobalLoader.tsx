@@ -108,7 +108,7 @@ export function GlobalLoader() {
               </div>
             </motion.div>
             
-            <div className="hidden sm:flex items-center gap-1.5">
+            <div className="hidden sm:flex items-center gap-[3px]">
               <div className="w-1.5 h-4 bg-foreground animate-pulse" />
               <div className="w-1.5 h-4 bg-foreground/80 animate-pulse delay-75" />
               <div className="w-1.5 h-4 bg-foreground/60 animate-pulse delay-150" />
