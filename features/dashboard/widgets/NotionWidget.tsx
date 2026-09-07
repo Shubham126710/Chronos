@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FileText, Search, ExternalLink, RefreshCw, AlertCircle } from "lucide-react";
+import { FileText, Search, ArrowRight, RefreshCw, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export const NotionWidget: React.FC = () => {
@@ -96,8 +96,7 @@ export const NotionWidget: React.FC = () => {
               {pages.map((page) => (
                 <motion.a
                   key={page.id}
-                  href={page.url}
-                  target="_blank"
+                  href={"/app/notes"}
                   rel="noopener noreferrer"
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -107,7 +106,7 @@ export const NotionWidget: React.FC = () => {
                     <span className="font-bold text-foreground text-[10px] uppercase tracking-widest truncate max-w-[85%] group-hover:text-foreground/80">
                       {page.title}
                     </span>
-                    <ExternalLink className="w-3 h-3 text-foreground/30 group-hover:text-foreground/60 transition-colors" />
+                    <ArrowRight className="w-3 h-3 text-foreground/30 group-hover:text-foreground/60 transition-colors" />
                   </div>
                   <span className="text-[9px] text-foreground/50 tracking-widest uppercase">
                     Edited: {new Date(page.lastEdited).toLocaleDateString()}

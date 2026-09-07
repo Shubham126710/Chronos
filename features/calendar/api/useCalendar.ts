@@ -55,10 +55,75 @@ export function useCalendar(dateStr?: string, view?: string) {
     },
   });
 
+  const createEventMutation = useMutation({
+    mutationFn: async (newEvent: Partial<TimeBlock> & { date: string }) => {
+      // Start time needs to include the selected date
+      const startTime = new Date(`${newEvent.date}T${newEvent.startTime}:00`).toISOString();
+      const endTime = new Date(`${newEvent.date}T${newEvent.endTime}:00`).toISOString();
+
+      const res = await fetch("/api/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newEvent.title,
+          startTime,
+          endTime,
+          category: newEvent.category === "DeepWork" ? "FOCUS" : newEvent.category,
+          isTimeBlock: true,
+          color: newEvent.color || "#7B5CFF",
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create event");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendar"] });
+    },
+  });
+
+  const updateEventMutation = useMutation({
+    mutationFn: async ({ id, title, startTime, endTime, category, date }: Partial<TimeBlock> & { id: string, date: string }) => {
+      const startIso = startTime ? new Date(`${date}T${startTime}:00`).toISOString() : undefined;
+      const endIso = endTime ? new Date(`${date}T${endTime}:00`).toISOString() : undefined;
+
+      const res = await fetch(`/api/calendar/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          startTime: startIso,
+          endTime: endIso,
+          category: category === "DeepWork" ? "FOCUS" : category,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update event");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendar"] });
+    },
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/calendar/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete event");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendar"] });
+    },
+  });
+
   return {
     blocks: data?.blocks,
     isGoogleConnected: data?.isGoogleConnected,
     isLoading,
     error,
+    createEvent: (event: Partial<TimeBlock> & { date: string }) => createEventMutation.mutate(event),
+    updateEvent: (event: Partial<TimeBlock> & { id: string, date: string }) => updateEventMutation.mutate(event),
+    deleteEvent: (id: string) => deleteEventMutation.mutate(id),
   };
 }

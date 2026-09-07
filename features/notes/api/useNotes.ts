@@ -5,9 +5,10 @@ export interface NoteItem {
   title: string;
   content: string;
   updatedAt: string;
-  attachedToType: "Project" | "Task" | "Goal" | "Meeting" | "General";
+  attachedToType: "Project" | "Task" | "Goal" | "Meeting" | "General" | "Notion";
   attachedToName: string;
   tags: string[];
+  isNotion?: boolean;
 }
 
 export function useNotes() {
@@ -16,11 +17,15 @@ export function useNotes() {
   const { data: notes, isLoading, error } = useQuery<NoteItem[]>({
     queryKey: ["notes"],
     queryFn: async () => {
-      const res = await fetch("/api/notes");
-      if (!res.ok) throw new Error("Failed to fetch notes");
-      const json = await res.json();
-      
-      return json.data.map((n: any): NoteItem => ({
+      const [localRes, notionRes] = await Promise.all([
+        fetch("/api/notes"),
+        fetch("/api/integrations/notion/pages").catch(() => null)
+      ]);
+
+      if (!localRes.ok) throw new Error("Failed to fetch notes");
+
+      const localJson = await localRes.json();
+      const localNotes = localJson.data.map((n: any): NoteItem => ({
         id: n.id,
         title: n.title,
         content: n.content || "",
@@ -29,12 +34,35 @@ export function useNotes() {
         attachedToName: n.attachedToName,
         tags: n.tags,
       }));
+
+      let notionNotes: NoteItem[] = [];
+      if (notionRes && notionRes.ok) {
+        const notionJson = await notionRes.json();
+        if (notionJson.success) {
+          notionNotes = notionJson.data;
+        }
+      }
+
+      return [...localNotes, ...notionNotes].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     },
   });
 
+  const getNoteContent = async (id: string) => {
+    if (id.startsWith("notion-")) {
+      const res = await fetch(`/api/integrations/notion/pages/${id}`);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data.content;
+      }
+    }
+    // Local notes content is already loaded in list
+    return null;
+  };
+
   const updateNoteMutation = useMutation({
     mutationFn: async ({ id, title, content }: { id: string; title: string; content: string }) => {
-      const res = await fetch(`/api/notes/${id}`, {
+      const endpoint = id.startsWith("notion-") ? `/api/integrations/notion/pages/${id}` : `/api/notes/${id}`;
+      const res = await fetch(endpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, content }),
@@ -48,8 +76,9 @@ export function useNotes() {
   });
 
   const createNoteMutation = useMutation({
-    mutationFn: async (newNote: Partial<NoteItem>) => {
-      const res = await fetch("/api/notes", {
+    mutationFn: async (newNote: Partial<NoteItem> & { isNotion?: boolean }) => {
+      const endpoint = newNote.isNotion ? "/api/integrations/notion/pages" : "/api/notes";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newNote),
@@ -66,6 +95,7 @@ export function useNotes() {
     notes,
     isLoading,
     error,
+    getNoteContent,
     updateNote: (id: string, title: string, content: string) => updateNoteMutation.mutate({ id, title, content }),
     createNote: (newNote: Partial<NoteItem>) => createNoteMutation.mutate(newNote),
   };

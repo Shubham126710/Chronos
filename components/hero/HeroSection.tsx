@@ -3,60 +3,14 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Play } from "lucide-react";
+import DitherShaderDemo from "@/components/dither-shader-demo";
 
 interface HeroSectionProps {
   onStartFree?: () => void;
   onWatchDemo?: () => void;
 }
 
-const TemporalSignal = () => {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
-  if (!mounted) return <div className="h-32 w-full" />;
-
-  const bands = 24;
-
-  return (
-    <div className="w-full flex items-end justify-between overflow-hidden h-32 opacity-70 gap-[2px]">
-      {Array.from({ length: bands }).map((_, i) => {
-        // Density-to-sparse transitions: denser and taller on the right
-        const progress = i / bands;
-        const isDense = progress > 0.4;
-        
-        const minHeight = isDense ? 30 : 10;
-        const maxHeight = isDense ? 90 : 40;
-        
-        const baseHeight = minHeight + Math.random() * (maxHeight - minHeight);
-        const peakHeight = Math.min(100, baseHeight + 20 + Math.random() * 20);
-        
-        const baseOpacity = isDense ? 0.5 + Math.random() * 0.4 : 0.1 + Math.random() * 0.3;
-        const peakOpacity = isDense ? 0.2 + Math.random() * 0.3 : 0.5 + Math.random() * 0.4;
-        
-        const delay = Math.random() * 2;
-        const duration = 2 + Math.random() * 3;
-        
-        return (
-          <motion.div
-            key={i}
-            className="flex-1 bg-foreground w-full"
-            initial={{ height: `${baseHeight}%`, opacity: baseOpacity }}
-            animate={{ 
-              height: [`${baseHeight}%`, `${peakHeight}%`, `${baseHeight}%`],
-              opacity: [baseOpacity, peakOpacity, baseOpacity]
-            }}
-            transition={{
-              duration,
-              delay,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-};
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onStartFree, onWatchDemo }) => {
   return (
@@ -97,10 +51,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartFree, onWatchDe
               transition={{ duration: 1, delay: 0.4 }}
               className="hidden md:flex flex-col items-end shrink-0 max-w-[300px] xl:max-w-[400px] w-full"
             >
-              <div className="text-[9px] font-mono uppercase tracking-widest text-foreground/40 mb-2 w-full text-right">
-                TEMPORAL SIGNAL // ACTIVE
-              </div>
-              <TemporalSignal />
+              <DitherShaderDemo />
             </motion.div>
           </div>
 

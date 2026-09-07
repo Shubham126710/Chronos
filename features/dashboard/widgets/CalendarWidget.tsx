@@ -34,7 +34,7 @@ export const CalendarWidget: React.FC = () => {
   return (
     <div className="flex flex-col h-full font-mono">
       {/* Header handled by WidgetContainer */}
-      
+
       <div className="flex-1 overflow-y-auto scrollbar-none pr-4">
         <div className="flex flex-col space-y-6">
           {events.map((event: any, index: number) => {
@@ -44,10 +44,10 @@ export const CalendarWidget: React.FC = () => {
             const isCurrent = start <= now && end >= now;
 
             return (
-              <div 
-                key={event.id} 
+              <div
+                key={event.id}
                 className={clsx(
-                  "grid grid-cols-[48px_1fr] gap-6 group transition-colors", 
+                  "grid grid-cols-[48px_1fr] gap-6 group transition-colors",
                   isPast ? "opacity-30" : "opacity-100",
                   isCurrent && "text-foreground"
                 )}
@@ -82,6 +82,14 @@ export const CalendarWidget: React.FC = () => {
           })}
         </div>
       </div>
+
+      {events.length > 0 && (
+        <div className="pt-4 mt-2 border-t border-border flex justify-end">
+          <a href="/app/calendar" className="text-[9px] uppercase tracking-widest text-foreground/50 hover:text-foreground flex items-center gap-1 transition-colors">
+            View Full Calendar <ArrowRight className="w-3 h-3" />
+          </a>
+        </div>
+      )}
     </div>
   );
 };

@@ -453,7 +453,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center gap-2 mb-6">
                 <div className="flex gap-0.5">
-                  {[...Array(6)].map((_, i) => (
+                  {[...Array(4)].map((_, i) => (
                     <div key={i} className="w-2 h-6 bg-background" />
                   ))}
                 </div>

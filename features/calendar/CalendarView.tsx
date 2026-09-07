@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { 
-  Calendar as CalendarIcon, Clock, Sparkles, RefreshCw, Plus, 
-  ChevronLeft, ChevronRight, ShieldCheck, AlertCircle, CloudRain, 
+import {
+  Calendar as CalendarIcon, Clock, Sparkles, RefreshCw, Plus,
+  ChevronLeft, ChevronRight, ShieldCheck, AlertCircle, CloudRain,
   CheckCircle2, Lock, ArrowRight, Zap
 } from "lucide-react";
 
@@ -13,8 +13,39 @@ import {
 import { useCalendar, TimeBlock } from "./api/useCalendar";
 
 export const CalendarView: React.FC = () => {
-  const { blocks: fetchedBlocks, isGoogleConnected, isLoading } = useCalendar(new Date().toISOString(), "day");
+  const { blocks: fetchedBlocks, isGoogleConnected, isLoading, createEvent, updateEvent, deleteEvent } = useCalendar(new Date().toISOString(), "day");
   const blocks = fetchedBlocks || [];
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<Partial<TimeBlock> | null>(null);
+
+  const handleOpenModal = (block?: Partial<TimeBlock>) => {
+    if (block) {
+      setEditingBlock(block);
+    } else {
+      setEditingBlock({ title: "", startTime: "09:00", endTime: "10:00", category: "DeepWork" });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSave = () => {
+    if (editingBlock) {
+      const today = new Date().toISOString().split('T')[0];
+      if (editingBlock.id) {
+        updateEvent({ ...editingBlock, date: today } as any);
+      } else {
+        createEvent({ ...editingBlock, date: today } as any);
+      }
+    }
+    setIsModalOpen(false);
+  };
+
+  const handleDelete = () => {
+    if (editingBlock?.id) {
+      deleteEvent(editingBlock.id);
+    }
+    setIsModalOpen(false);
+  };
 
   const timeSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 
@@ -36,7 +67,7 @@ export const CalendarView: React.FC = () => {
 
         {/* Sync & Action Controls */}
         <div className="flex items-center gap-3 w-full md:w-auto text-[10px] font-mono uppercase tracking-widest">
-          <button className="px-4 py-2 text-foreground hover:bg-foreground hover:text-background border border-foreground transition-all flex items-center gap-1.5">
+          <button onClick={() => handleOpenModal()} className="px-4 py-2 text-foreground hover:bg-foreground hover:text-background border border-foreground transition-all flex items-center gap-1.5">
             <span>[ NEW FOCUS BLOCK ]</span>
           </button>
         </div>
@@ -134,14 +165,14 @@ export const CalendarView: React.FC = () => {
                               [ AUTO-OVERFLOW PROTECTED ]
                             </span>
                           )}
-                          <button className="text-foreground/50 hover:text-foreground transition-colors">
+                          <button onClick={() => handleOpenModal(matchingBlock)} className="text-foreground/50 hover:text-foreground transition-colors">
                             [ EDIT ]
                           </button>
                         </div>
                       </div>
                     ) : (
                       <div className="w-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="text-[10px] uppercase tracking-widest text-foreground/40 hover:text-foreground transition-colors">
+                        <button onClick={() => handleOpenModal({ title: "", startTime: time, endTime: `${parseInt(time.split(':')[0]) + 1}:00`.padStart(5, '0'), category: "DeepWork" })} className="text-[10px] uppercase tracking-widest text-foreground/40 hover:text-foreground transition-colors">
                           [ + TIME BLOCK HERE ]
                         </button>
                       </div>
@@ -153,6 +184,78 @@ export const CalendarView: React.FC = () => {
           </div>
         </div>
 
+    {isModalOpen && editingBlock && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 font-mono">
+        <div className="bg-background border border-foreground max-w-md w-full p-6 space-y-6 shadow-2xl">
+          <div className="flex justify-between items-center border-b border-border pb-4">
+            <h3 className="text-lg font-bold uppercase tracking-widest">{editingBlock.id ? "Edit Block" : "New Block"}</h3>
+            <button onClick={() => setIsModalOpen(false)} className="text-foreground/50 hover:text-foreground">✕</button>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-foreground/60 block mb-1">Title</label>
+              <input
+                type="text"
+                value={editingBlock.title || ""}
+                onChange={(e) => setEditingBlock({ ...editingBlock, title: e.target.value })}
+                className="w-full bg-background border border-border p-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+                placeholder="Meeting or task name"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-foreground/60 block mb-1">Start Time</label>
+                <input
+                  type="time"
+                  value={editingBlock.startTime || ""}
+                  onChange={(e) => setEditingBlock({ ...editingBlock, startTime: e.target.value })}
+                  className="w-full bg-background border border-border p-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-foreground/60 block mb-1">End Time</label>
+                <input
+                  type="time"
+                  value={editingBlock.endTime || ""}
+                  onChange={(e) => setEditingBlock({ ...editingBlock, endTime: e.target.value })}
+                  className="w-full bg-background border border-border p-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-foreground/60 block mb-1">Category</label>
+              <select
+                value={editingBlock.category || "DeepWork"}
+                onChange={(e) => setEditingBlock({ ...editingBlock, category: e.target.value as any })}
+                className="w-full bg-background border border-border p-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+              >
+                <option value="DeepWork">Deep Work</option>
+                <option value="Meeting">Meeting</option>
+                <option value="Wellness">Wellness</option>
+                <option value="Buffer">Buffer</option>
+                <option value="EXTERNAL">External (Google)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-between pt-4 border-t border-border">
+            {editingBlock.id ? (
+              <button onClick={handleDelete} className="text-red-500 text-[10px] font-bold uppercase tracking-widest hover:underline">
+                [ DELETE ]
+              </button>
+            ) : (
+              <div />
+            )}
+            <button onClick={handleSave} className="bg-foreground text-background px-4 py-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-90">
+              [ SAVE ]
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 };

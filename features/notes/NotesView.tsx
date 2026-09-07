@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { 
   FileText, Plus, Search, Tag, Layers, Calendar, Edit3, 
-  Eye, Save, Trash2, CheckCircle2, Sparkles, FolderGit2
+  Eye, Save, Trash2, CheckCircle2, Sparkles, FolderGit2, RefreshCw
 } from "lucide-react";
 
 // Mock data replaced with React Query hook
@@ -11,7 +11,7 @@ import {
 import { useNotes, NoteItem } from "./api/useNotes";
 
 export const NotesView: React.FC = () => {
-  const { notes: fetchedNotes, isLoading, updateNote, createNote } = useNotes();
+  const { notes: fetchedNotes, isLoading, updateNote, createNote, getNoteContent } = useNotes();
   const notes = fetchedNotes || [];
   
   const [selectedNote, setSelectedNote] = useState<NoteItem | null>(null);
@@ -21,6 +21,23 @@ export const NotesView: React.FC = () => {
       handleSelectNote(notes[0]);
     }
   }, [notes, selectedNote]);
+
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+
+  React.useEffect(() => {
+    const fetchContent = async () => {
+      if (selectedNote?.isNotion && selectedNote.content === "Loading content...") {
+        setIsLoadingContent(true);
+        const content = await getNoteContent(selectedNote.id);
+        if (content !== null) {
+          setSelectedNote(prev => prev ? { ...prev, content } : null);
+          setEditContent(content);
+        }
+        setIsLoadingContent(false);
+      }
+    };
+    fetchContent();
+  }, [selectedNote?.id, selectedNote?.content, getNoteContent]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -51,8 +68,15 @@ export const NotesView: React.FC = () => {
       content: `# New Contextual Note\n\nStart typing markdown notes, system design RFCs, or meeting agendas here...`,
       tags: ["New", "Draft"],
     });
-    // With real server state, the query invalidation will fetch it, but we won't automatically select it 
-    // immediately because we don't know its ID yet until refetch completes.
+  };
+
+  const handleCreateNewNotion = () => {
+    createNote({
+      title: "Untitled Notion Page",
+      content: "Start typing to sync with Notion...",
+      tags: ["Notion", "Draft"],
+      isNotion: true
+    });
   };
 
   return (
@@ -71,13 +95,22 @@ export const NotesView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={handleCreateNew}
-          className="px-4 py-2 bg-foreground text-background font-bold text-[10px] uppercase tracking-widest hover:bg-background hover:text-foreground border border-foreground transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-3 h-3" />
-          <span>[ NEW NOTE ]</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCreateNew}
+            className="px-4 py-2 bg-foreground text-background font-bold text-[10px] uppercase tracking-widest hover:bg-background hover:text-foreground border border-foreground transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-3 h-3" />
+            <span>[ NEW NOTE ]</span>
+          </button>
+          <button
+            onClick={handleCreateNewNotion}
+            className="px-4 py-2 bg-background text-foreground font-bold text-[10px] uppercase tracking-widest hover:bg-foreground hover:text-background border border-foreground transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-3 h-3" />
+            <span>[ NEW NOTION PAGE ]</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Grid: Notes List (4 cols) vs Editor/Preview (8 cols) */}
@@ -186,7 +219,12 @@ export const NotesView: React.FC = () => {
 
           {/* Content Area */}
           <div className="p-6 flex-1 overflow-y-auto">
-            {isEditing ? (
+            {isLoadingContent ? (
+              <div className="flex items-center justify-center h-full text-foreground/50 text-sm font-bold uppercase tracking-widest">
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                SYNCING NOTION DATA...
+              </div>
+            ) : isEditing ? (
               <textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
