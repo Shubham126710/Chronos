@@ -2,20 +2,16 @@
 
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { usePathname, useSearchParams } from "next/navigation";
 
 export function GlobalLoader() {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Trigger loader on route change
     setIsLoading(true);
     setProgress(0);
 
-    const duration = 800; // faster animation for frequent route changes
+    const duration = 800; // fast animation
     const startTime = Date.now();
     let animationFrameId: number;
 
@@ -41,7 +37,7 @@ export function GlobalLoader() {
     return () => {
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
-  }, [pathname, searchParams]);
+  }, []);
 
   return (
     <AnimatePresence>

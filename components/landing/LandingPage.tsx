@@ -97,7 +97,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
                         : "text-foreground/40 hover:text-foreground/70"
                     }`}
                   >
-                    {activeSection === idx && <span className="mr-2 text-[#FF8C61]">►</span>}
                     {section.replace(/-/g, " ")}
                   </a>
                 ))}

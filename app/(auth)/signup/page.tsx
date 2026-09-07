@@ -85,6 +85,13 @@ export default function SignupPage() {
       <div className="w-full lg:w-[35%] flex flex-col justify-center px-8 sm:px-16 xl:px-20 z-10 bg-[#0B0910] h-screen overflow-y-auto custom-scrollbar">
         <div className="w-full max-w-sm mx-auto py-12">
           
+          {/* Back to Home Button */}
+          <div className="mb-8 lg:mb-12">
+            <Link href="/" className="inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-foreground/40 hover:text-foreground transition-colors">
+              <span>← Back to Home</span>
+            </Link>
+          </div>
+
           {/* Mobile Logo */}
           <div className="lg:hidden flex gap-[3px] mb-12">
             <div className="w-1.5 h-6 bg-foreground" />
