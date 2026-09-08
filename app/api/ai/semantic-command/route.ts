@@ -79,8 +79,8 @@ export async function POST(req: Request) {
       const google = createGoogleGenerativeAI({
         apiKey: process.env.GEMINI_API_KEY,
       });
-      // gemini-3.6-flash doesn't exist, default to 1.5-flash which is widely supported
-      const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+      // default to 3.6-flash as requested
+      const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
       aiModel = google(modelName);
     } else if (provider === "groq") {
       return NextResponse.json({ success: false, message: "Groq provider not yet implemented" }, { status: 501 });
@@ -394,7 +394,7 @@ export async function POST(req: Request) {
       } catch (e: any) {
         console.error("[AI Provider Error] Request failed:");
         console.error(`  Provider: ${provider}`);
-        console.error(`  Model: ${process.env.GEMINI_MODEL || 'gemini-1.5-flash'}`);
+        console.error(`  Model: ${process.env.GEMINI_MODEL || 'gemini-3.6-flash'}`);
         console.error(`  Status: ${e?.statusCode || e?.status || 'Unknown'}`);
         console.error(`  Error Type: ${e?.name || typeof e}`);
         console.error(`  Message: ${e?.message || e}`);
