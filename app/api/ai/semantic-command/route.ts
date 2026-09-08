@@ -415,9 +415,19 @@ export async function POST(req: Request) {
           try {
             const toolFn = tools[call.toolName as keyof typeof tools].execute as Function;
             const res = await toolFn(callArgs);
-            toolResults.push({ toolCallId: call.toolCallId, result: res });
+            toolResults.push({ 
+              type: "tool-result", 
+              toolCallId: call.toolCallId, 
+              toolName: call.toolName, 
+              result: res 
+            });
           } catch (e) {
-            toolResults.push({ toolCallId: call.toolCallId, result: "Tool failed." });
+            toolResults.push({ 
+              type: "tool-result", 
+              toolCallId: call.toolCallId, 
+              toolName: call.toolName, 
+              result: "Tool failed." 
+            });
           }
         }
       }
