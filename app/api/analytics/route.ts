@@ -11,7 +11,9 @@ export async function GET() {
     }
     const userId = (session.user as any).id;
     const dbUser = await prisma.user.findUnique({ where: { id: userId } });
-
+    if (!dbUser) {
+      return NextResponse.json({ success: false, message: "User session invalid. Please log out and log back in." }, { status: 401 });
+    }
     // 1. Compute Productivity Score
     // Formula: Base 50 + (Tasks Completion Rate * 30) + (Habit Consistency * 20)
     // - Overdue tasks subtract points.

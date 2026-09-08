@@ -25,30 +25,40 @@ export async function POST(req: Request) {
     const RATE_LIMIT_WINDOW_SECONDS = parseInt(process.env.AI_RATE_LIMIT_WINDOW || "60", 10);
     const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_SECONDS * 1000);
 
-    const recentRequests = await prisma.activityLog.count({
-      where: {
-        userId,
-        action: "AI_COMMAND",
-        createdAt: { gte: windowStart }
-      }
-    });
+    try {
+      const recentRequests = await prisma.activityLog.count({
+        where: {
+          userId,
+          action: "AI_COMMAND",
+          createdAt: { gte: windowStart }
+        }
+      });
 
-    if (recentRequests >= RATE_LIMIT) {
-      return NextResponse.json(
-        { success: false, message: "Rate limit exceeded. Please try again later." },
-        { status: 429 }
-      );
+      if (recentRequests >= RATE_LIMIT) {
+        return NextResponse.json(
+          { success: false, message: "Rate limit exceeded. Please try again later." },
+          { status: 429 }
+        );
+      }
+
+      // Log this request for rate limit tracking
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          action: "AI_COMMAND",
+          module: "AI",
+          metadata: JSON.stringify({ query: query.substring(0, 100) })
+        }
+      });
+    } catch (dbError: any) {
+      console.error("Database error during rate limit check (possible invalid user ID):", dbError);
+      if (dbError.code === 'P2003') {
+        // Foreign key constraint failed - user doesn't exist in DB anymore
+        return NextResponse.json({ success: false, message: "User session invalid. Please log out and log back in." }, { status: 401 });
+      }
+      // If it's another DB error, we can optionally fail or proceed. Let's fail safely.
+      return NextResponse.json({ success: false, message: "Internal system error during rate limit check." }, { status: 500 });
     }
-
-    // Log this request for rate limit tracking
-    await prisma.activityLog.create({
-      data: {
-        userId,
-        action: "AI_COMMAND",
-        module: "AI",
-        metadata: JSON.stringify({ query: query.substring(0, 100) })
-      }
-    });
 
     const provider = process.env.AI_PROVIDER || "gemini";
     let aiModel;
