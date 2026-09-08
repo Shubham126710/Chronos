@@ -124,7 +124,7 @@ export async function POST(req: Request) {
             where.dueDate = { lt: new Date() };
           }
           const tasks = await prisma.task.findMany({ where, take: 50 });
-          return tasks.map(t => ({ id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate, isCompleted: t.isCompleted }));
+          return { tasks: tasks.map(t => ({ id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate, isCompleted: t.isCompleted })) };
         }
       }),
       getCalendarEvents: tool({
@@ -136,6 +136,7 @@ export async function POST(req: Request) {
         // @ts-ignore
         execute: async (args: any) => {
           const { startDate, endDate } = args;
+          if (!startDate || !endDate) return { error: "Missing startDate or endDate" };
           const events = await prisma.calendarEvent.findMany({
             where: {
               userId,
@@ -182,7 +183,7 @@ export async function POST(req: Request) {
             }
           }
           
-          return allEvents;
+          return { events: allEvents };
         }
       }),
       getGoals: tool({
@@ -191,7 +192,7 @@ export async function POST(req: Request) {
         // @ts-ignore
         execute: async (args: any) => {
           const goals = await prisma.goal.findMany({ where: { userId, status: "ACTIVE" }, take: 10 });
-          return goals.map(g => ({ id: g.id, title: g.title, progress: g.progress }));
+          return { goals: goals.map(g => ({ id: g.id, title: g.title, progress: g.progress })) };
         }
       }),
       getHabits: tool({
@@ -200,7 +201,7 @@ export async function POST(req: Request) {
         // @ts-ignore
         execute: async (args: any) => {
           const habits = await prisma.habit.findMany({ where: { userId }, take: 15 });
-          return habits.map(h => ({ id: h.id, title: h.title, currentStreak: h.currentStreak, targetDays: h.targetDays }));
+          return { habits: habits.map(h => ({ id: h.id, title: h.title, currentStreak: h.currentStreak, targetDays: h.targetDays })) };
         }
       }),
       getDashboardInsights: tool({
@@ -231,7 +232,7 @@ export async function POST(req: Request) {
             });
             if (!response.ok) return { error: "Failed to fetch from Zoom API" };
             const data = await response.json();
-            return data.meetings?.map((m: any) => ({ topic: m.topic, startTime: m.start_time, duration: m.duration, joinUrl: m.join_url })) || [];
+            return { meetings: data.meetings?.map((m: any) => ({ topic: m.topic, startTime: m.start_time, duration: m.duration, joinUrl: m.join_url })) || [] };
           } catch (e) {
             return { error: "Zoom fetch failed" };
           }
@@ -263,10 +264,10 @@ export async function POST(req: Request) {
             });
             if (!response.ok) return { error: "Failed to fetch from Notion API" };
             const data = await response.json();
-            return data.results?.map((r: any) => ({
+            return { pages: data.results?.map((r: any) => ({
               id: r.id,
               url: r.url
-            })) || [];
+            })) || [] };
           } catch (e) {
             return { error: "Notion search failed" };
           }
@@ -310,7 +311,7 @@ export async function POST(req: Request) {
                 };
               })
             );
-            return detailedMessages;
+            return { emails: detailedMessages };
           } catch (e) {
             return { error: "Gmail search failed" };
           }
@@ -427,7 +428,7 @@ export async function POST(req: Request) {
               type: "tool-result", 
               toolCallId: call.toolCallId, 
               toolName: call.toolName, 
-              result: "Tool failed." 
+              result: { error: "Tool failed." } 
             });
           }
         }
