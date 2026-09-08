@@ -440,8 +440,15 @@ export async function POST(req: Request) {
 
       messages.push({
         role: "assistant",
-        content: result.text || "",
-        toolCalls: toolCalls
+        content: [
+          ...(result.text ? [{ type: "text" as const, text: result.text }] : []),
+          ...toolCalls.map(tc => ({
+            type: "tool-call" as const,
+            toolCallId: tc.toolCallId,
+            toolName: tc.toolName,
+            args: (tc as any).args || (tc as any).input
+          }))
+        ]
       });
       messages.push({
         role: "tool",
