@@ -385,6 +385,7 @@ export async function POST(req: Request) {
     while (currentStep < 5) {
       let result;
       try {
+        console.log("SENDING MESSAGES TO AI:", JSON.stringify(messages, null, 2));
         result = await generateText({
           model: aiModel,
           system: systemContext,
