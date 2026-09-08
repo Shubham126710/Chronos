@@ -20,17 +20,64 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Missing query" }, { status: 400 });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          title: "AI Analysis (Fallback Mode)",
-          summary: "I parsed your query: " + query + ". However, the GEMINI_API_KEY is missing from environment variables, so I cannot perform semantic analysis.",
-          actionLabel: "Configure API Key",
-          details: ["Please add GEMINI_API_KEY to your .env file to enable semantic AI."],
-          operations: []
-        }
+    // Rate Limiting Logic using ActivityLog
+    const RATE_LIMIT = parseInt(process.env.AI_RATE_LIMIT || "5", 10);
+    const RATE_LIMIT_WINDOW_SECONDS = parseInt(process.env.AI_RATE_LIMIT_WINDOW || "60", 10);
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_SECONDS * 1000);
+
+    const recentRequests = await prisma.activityLog.count({
+      where: {
+        userId,
+        action: "AI_COMMAND",
+        createdAt: { gte: windowStart }
+      }
+    });
+
+    if (recentRequests >= RATE_LIMIT) {
+      return NextResponse.json(
+        { success: false, message: "Rate limit exceeded. Please try again later." },
+        { status: 429 }
+      );
+    }
+
+    // Log this request for rate limit tracking
+    await prisma.activityLog.create({
+      data: {
+        userId,
+        action: "AI_COMMAND",
+        module: "AI",
+        metadata: JSON.stringify({ query: query.substring(0, 100) })
+      }
+    });
+
+    const provider = process.env.AI_PROVIDER || "gemini";
+    let aiModel;
+
+    if (provider === "gemini") {
+      if (!process.env.GEMINI_API_KEY) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            title: "AI Analysis (Fallback Mode)",
+            summary: "I parsed your query: " + query + ". However, the GEMINI_API_KEY is missing from environment variables, so I cannot perform semantic analysis.",
+            actionLabel: "Configure API Key",
+            details: ["Please add GEMINI_API_KEY to your .env file to enable semantic AI."],
+            operations: []
+          }
+        });
+      }
+      const google = createGoogleGenerativeAI({
+        apiKey: process.env.GEMINI_API_KEY,
       });
+      // gemini-3.6-flash doesn't exist, default to 1.5-flash which is widely supported
+      const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+      aiModel = google(modelName);
+    } else if (provider === "groq") {
+      return NextResponse.json({ success: false, message: "Groq provider not yet implemented" }, { status: 501 });
+    } else if (provider === "qwen") {
+      return NextResponse.json({ success: false, message: "Qwen provider not yet implemented" }, { status: 501 });
+    } else {
+      return NextResponse.json({ success: false, message: "Invalid AI_PROVIDER configuration" }, { status: 400 });
     }
 
     // System context injected into prompt
@@ -280,7 +327,6 @@ export async function POST(req: Request) {
             const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
             
             const msgDetails = await gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' });
-            // Very simplified body extraction (in reality needs MIME parsing)
             let body = msgDetails.data.snippet;
             const parts = msgDetails.data.payload?.parts;
             if (parts && parts.length > 0) {
@@ -291,7 +337,7 @@ export async function POST(req: Request) {
             } else if (msgDetails.data.payload?.body?.data) {
                body = Buffer.from(msgDetails.data.payload.body.data, 'base64').toString('utf-8');
             }
-            return { id: messageId, body: body.substring(0, 1000) }; // Truncate to save tokens
+            return { id: messageId, body: body.substring(0, 1000) };
           } catch (e) {
             return { error: "Gmail read failed" };
           }
@@ -317,7 +363,6 @@ export async function POST(req: Request) {
         }),
         // @ts-ignore
         execute: async (args: any) => {
-          // This tells the AI that the response was successfully queued
           return { success: true, message: "Response sent to user. Stop generating." };
         }
       })
@@ -327,17 +372,24 @@ export async function POST(req: Request) {
     let messages: any[] = [{ role: "user", content: query }];
     let aiResponseData = null;
 
-    const google = createGoogleGenerativeAI({
-      apiKey: process.env.GEMINI_API_KEY,
-    });
-
     while (currentStep < 5) {
-      const result = await generateText({
-        model: google(process.env.GEMINI_MODEL || 'gemini-3.6-flash'),
-        system: systemContext,
-        messages,
-        tools,
-      });
+      let result;
+      try {
+        result = await generateText({
+          model: aiModel,
+          system: systemContext,
+          messages,
+          tools,
+        });
+      } catch (e: any) {
+        console.error("[AI Provider Error] Request failed:");
+        console.error(`  Provider: ${provider}`);
+        console.error(`  Model: ${process.env.GEMINI_MODEL || 'gemini-1.5-flash'}`);
+        console.error(`  Status: ${e?.statusCode || e?.status || 'Unknown'}`);
+        console.error(`  Error Type: ${e?.name || typeof e}`);
+        console.error(`  Message: ${e?.message || e}`);
+        throw new Error(`AI_PROVIDER_ERROR: ${e?.message || "Unknown error"}`);
+      }
 
       const toolCalls = result.toolCalls || [];
       const toolResults = [];
@@ -390,8 +442,14 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true, data: aiResponseData });
-  } catch (error) {
-    console.error("AI Semantic Error:", error);
+  } catch (error: any) {
+    console.error("AI Semantic Error Details:", error);
+    if (error?.message?.includes('429') || error?.status === 429) {
+      return NextResponse.json(
+        { success: false, message: "AI provider rate limit exceeded. Please try again later." },
+        { status: 429 }
+      );
+    }
     return NextResponse.json(
       { success: false, message: "AI processing failed." },
       { status: 500 }
