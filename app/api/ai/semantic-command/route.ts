@@ -136,7 +136,6 @@ export async function POST(req: Request) {
         // @ts-ignore
         execute: async (args: any) => {
           const { startDate, endDate } = args;
-          if (!startDate || !endDate) return { error: "Missing startDate or endDate" };
           const events = await prisma.calendarEvent.findMany({
             where: {
               userId,
@@ -155,7 +154,10 @@ export async function POST(req: Request) {
           if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
             try {
               const { google } = require('googleapis');
-              const oauth2Client = new google.auth.OAuth2();
+              const oauth2Client = new google.auth.OAuth2(
+                process.env.GOOGLE_CLIENT_ID,
+                process.env.GOOGLE_CLIENT_SECRET
+              );
               oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
               const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
               
@@ -290,7 +292,10 @@ export async function POST(req: Request) {
           }
           try {
             const { google } = require('googleapis');
-            const oauth2Client = new google.auth.OAuth2();
+            const oauth2Client = new google.auth.OAuth2(
+              process.env.GOOGLE_CLIENT_ID,
+              process.env.GOOGLE_CLIENT_SECRET
+            );
             oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
             const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
             
@@ -333,7 +338,10 @@ export async function POST(req: Request) {
           }
           try {
             const { google } = require('googleapis');
-            const oauth2Client = new google.auth.OAuth2();
+            const oauth2Client = new google.auth.OAuth2(
+              process.env.GOOGLE_CLIENT_ID,
+              process.env.GOOGLE_CLIENT_SECRET
+            );
             oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
             const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
             
@@ -348,7 +356,7 @@ export async function POST(req: Request) {
             } else if (msgDetails.data.payload?.body?.data) {
                body = Buffer.from(msgDetails.data.payload.body.data, 'base64').toString('utf-8');
             }
-            return { id: messageId, body: body.substring(0, 1000) };
+            return { email: { id: messageId, body: body.substring(0, 1000) } };
           } catch (e) {
             return { error: "Gmail read failed" };
           }
@@ -408,28 +416,32 @@ export async function POST(req: Request) {
       let responded = false;
 
       for (const call of toolCalls) {
-        const callArgs = (call as any).args || (call as any).input;
+        const callArgs = 'args' in call ? call.args : (call as any).input;
         if (call.toolName === 'respondToUser') {
           aiResponseData = callArgs;
           responded = true;
           break;
-        } else if (tools[call.toolName as keyof typeof tools]) {
-          try {
-            const toolFn = tools[call.toolName as keyof typeof tools].execute as Function;
-            const res = await toolFn(callArgs);
-            toolResults.push({ 
-              type: "tool-result", 
-              toolCallId: call.toolCallId, 
-              toolName: call.toolName, 
-              result: res 
-            });
-          } catch (e) {
-            toolResults.push({ 
-              type: "tool-result", 
-              toolCallId: call.toolCallId, 
-              toolName: call.toolName, 
-              result: { error: "Tool failed." } 
-            });
+        } else {
+          // Use type assertion since we dynamically index tools
+          const toolInstance = (tools as any)[call.toolName];
+          if (toolInstance && typeof toolInstance.execute === 'function') {
+            try {
+              const res = await toolInstance.execute(callArgs);
+              toolResults.push({
+                type: "tool-result",
+                toolCallId: call.toolCallId,
+                toolName: call.toolName,
+                result: res
+              });
+            } catch (e) {
+              toolResults.push({
+                type: "tool-result",
+                toolCallId: call.toolCallId,
+                toolName: call.toolName,
+                result: { error: "Tool execution encountered an exception." },
+                isError: true
+              });
+            }
           }
         }
       }
@@ -448,7 +460,7 @@ export async function POST(req: Request) {
             type: "tool-call" as const,
             toolCallId: tc.toolCallId,
             toolName: tc.toolName,
-            args: (tc as any).args || (tc as any).input
+            args: 'args' in tc ? tc.args : (tc as any).input
           }))
         ]
       });
