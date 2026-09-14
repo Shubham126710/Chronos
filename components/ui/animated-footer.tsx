@@ -63,15 +63,15 @@ const Footer: React.FC<{ barCount?: number }> = ({ barCount = 23 }) => {
   return (
     <footer
       ref={footerRef}
-      className="bg-foreground text-background relative flex flex-col w-full h-full justify-between select-none overflow-hidden"
+      className="bg-black text-white relative flex flex-col w-full h-full justify-between select-none overflow-hidden"
     >
       <div className="max-w-[90vw] mx-auto w-full relative z-10 pt-32 pb-12">
         {/* Massive Branding */}
         <div className="mb-24 flex flex-col">
-          <h2 className="text-7xl sm:text-[12vw] leading-[0.8] font-medium tracking-tighter mix-blend-difference mb-8">
+          <h2 className="text-7xl sm:text-[12vw] leading-[0.8] font-medium tracking-tighter mb-8">
             CHRONOS.
           </h2>
-          <div className="w-full h-[1px] bg-background/20" />
+          <div className="w-full h-[1px] bg-white/20" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-24">
@@ -79,35 +79,35 @@ const Footer: React.FC<{ barCount?: number }> = ({ barCount = 23 }) => {
             <div className="flex items-center gap-2 mb-6">
               <div className="flex gap-0.5">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className="w-2 h-6 bg-background" />
+                  <div key={i} className="w-2 h-6 bg-white" />
                 ))}
               </div>
             </div>
-            <p className="text-background/70 text-sm font-light max-w-sm leading-relaxed">
+            <p className="text-white/70 text-sm font-light max-w-sm leading-relaxed">
               An open-source, local-first temporal operating system designed for uncompromising focus and intelligence.
             </p>
           </div>
 
           <div className="col-span-1 flex flex-col gap-4 text-xs font-mono uppercase tracking-widest">
-            <div className="text-background/40 mb-4">SYSTEM</div>
-            <a href="#how-it-works" className="hover:text-background/90 transition-colors">How it works</a>
-            <a href="#intelligence" className="hover:text-background/90 transition-colors">Intelligence</a>
-            <a href="#features" className="hover:text-background/90 transition-colors">Modules</a>
-            <a href="#pricing" className="hover:text-background/90 transition-colors">Pricing</a>
+            <div className="text-white/40 mb-4">SYSTEM</div>
+            <a href="#how-it-works" className="hover:text-white/90 transition-colors">How it works</a>
+            <a href="#intelligence" className="hover:text-white/90 transition-colors">Intelligence</a>
+            <a href="#features" className="hover:text-white/90 transition-colors">Modules</a>
+            <a href="#pricing" className="hover:text-white/90 transition-colors">Pricing</a>
           </div>
 
           <div className="col-span-1 flex flex-col gap-4 text-xs font-mono uppercase tracking-widest">
-            <div className="text-background/40 mb-4">RESOURCES</div>
-            <a href="#" className="hover:text-background/90 transition-colors">Documentation</a>
-            <a href="#" className="hover:text-background/90 transition-colors">GitHub Repository</a>
-            <a href="#" className="hover:text-background/90 transition-colors">Twitter / X</a>
-            <a href="#" className="hover:text-background/90 transition-colors">Terms of Service</a>
+            <div className="text-white/40 mb-4">RESOURCES</div>
+            <a href="#" className="hover:text-white/90 transition-colors">Documentation</a>
+            <a href="#" className="hover:text-white/90 transition-colors">GitHub Repository</a>
+            <a href="#" className="hover:text-white/90 transition-colors">Twitter / X</a>
+            <a href="#" className="hover:text-white/90 transition-colors">Terms of Service</a>
           </div>
         </div>
 
-        <div className="w-full h-[1px] bg-background/20 mb-8" />
+        <div className="w-full h-[1px] bg-white/20 mb-8" />
 
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] font-mono uppercase tracking-widest text-background/50">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] font-mono uppercase tracking-widest text-white/50">
           <div>© {new Date().getFullYear()} CHRONOS // ALL RIGHTS RESERVED.</div>
           <div className="flex items-center gap-6">
             <span>DESIGNED FOR FOCUS</span>
@@ -130,7 +130,7 @@ const Footer: React.FC<{ barCount?: number }> = ({ barCount = 23 }) => {
               className="wave-segment"
               style={{
                 height: `${index + 1}px`,
-                backgroundColor: "hsl(var(--background))",
+                backgroundColor: "white",
                 transition: "transform 0.1s ease",
                 willChange: "transform",
                 marginTop: "-2px",
