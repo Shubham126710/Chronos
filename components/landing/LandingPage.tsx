@@ -7,6 +7,7 @@ import {
   CheckCircle2, Clock, Layers, Menu, X
 } from "lucide-react";
 import { HeroSection } from "../hero/HeroSection";
+import Footer from "@/components/ui/animated-footer";
 
 import { useRouter } from "next/navigation";
 
@@ -436,61 +437,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-foreground text-background pt-32 pb-12 px-4 sm:px-8 lg:px-12 relative overflow-hidden">
-        <div className="max-w-[90vw] mx-auto w-full relative z-10">
-          
-          {/* Massive Branding */}
-          <div className="mb-24 flex flex-col">
-            <h2 className="text-7xl sm:text-[12vw] leading-[0.8] font-medium tracking-tighter mix-blend-difference mb-8">
-              CHRONOS.
-            </h2>
-            <div className="w-full h-[1px] bg-background/20" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-24">
-            
-            <div className="col-span-1 md:col-span-2">
-              <div className="flex items-center gap-2 mb-6">
-                <div className="flex gap-0.5">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="w-2 h-6 bg-background" />
-                  ))}
-                </div>
-              </div>
-              <p className="text-background/70 text-sm font-light max-w-sm leading-relaxed">
-                An open-source, local-first temporal operating system designed for uncompromising focus and intelligence.
-              </p>
-            </div>
-            
-            <div className="col-span-1 flex flex-col gap-4 text-xs font-mono uppercase tracking-widest">
-              <div className="text-background/40 mb-4">SYSTEM</div>
-              <a href="#how-it-works" className="hover:text-background/90 transition-colors">How it works</a>
-              <a href="#intelligence" className="hover:text-background/90 transition-colors">Intelligence</a>
-              <a href="#features" className="hover:text-background/90 transition-colors">Modules</a>
-              <a href="#pricing" className="hover:text-background/90 transition-colors">Pricing</a>
-            </div>
-
-            <div className="col-span-1 flex flex-col gap-4 text-xs font-mono uppercase tracking-widest">
-              <div className="text-background/40 mb-4">RESOURCES</div>
-              <a href="#" className="hover:text-background/90 transition-colors">Documentation</a>
-              <a href="#" className="hover:text-background/90 transition-colors">GitHub Repository</a>
-              <a href="#" className="hover:text-background/90 transition-colors">Twitter / X</a>
-              <a href="#" className="hover:text-background/90 transition-colors">Terms of Service</a>
-            </div>
-
-          </div>
-
-          <div className="w-full h-[1px] bg-background/20 mb-8" />
-          
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-[10px] font-mono uppercase tracking-widest text-background/50">
-            <div>© {new Date().getFullYear()} CHRONOS // ALL RIGHTS RESERVED.</div>
-            <div className="flex items-center gap-6">
-              <span>DESIGNED FOR FOCUS</span>
-              <span>VERSION 1.0.0</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer
+        leftLinks={[
+          { href: "/terms", label: "Terms & policies" },
+          { href: "/privacy-policy", label: "Privacy policy" },
+        ]}
+        rightLinks={[
+          { href: "/careers", label: "Careers" },
+          { href: "/about", label: "About" },
+          { href: "/help-center", label: "Help Center" },
+          { href: "https://x.com/ChronosOS", label: "Twitter" },
+          { href: "https://github.com/ChronosOS", label: "GitHub" },
+        ]}
+        copyrightText={`Chronos ${new Date().getFullYear()}. All Rights Reserved`}
+        barCount={23}
+      />
 
     </div>
   );
