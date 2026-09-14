@@ -437,21 +437,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
       </section>
 
       {/* FOOTER */}
-      <Footer
-        leftLinks={[
-          { href: "/terms", label: "Terms & policies" },
-          { href: "/privacy-policy", label: "Privacy policy" },
-        ]}
-        rightLinks={[
-          { href: "/careers", label: "Careers" },
-          { href: "/about", label: "About" },
-          { href: "/help-center", label: "Help Center" },
-          { href: "https://x.com/ChronosOS", label: "Twitter" },
-          { href: "https://github.com/ChronosOS", label: "GitHub" },
-        ]}
-        copyrightText={`Chronos ${new Date().getFullYear()}. All Rights Reserved`}
-        barCount={23}
-      />
+      <Footer barCount={23} />
 
     </div>
   );
