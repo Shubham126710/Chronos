@@ -97,11 +97,16 @@ const Footer: React.FC<{ barCount?: number }> = ({ barCount = 23 }) => {
           </div>
 
           <div className="col-span-1 flex flex-col gap-4 text-xs font-mono uppercase tracking-widest">
-            <div className="text-white/40 mb-4">RESOURCES</div>
-            <a href="#" className="hover:text-white/90 transition-colors">Documentation</a>
-            <a href="#" className="hover:text-white/90 transition-colors">GitHub Repository</a>
-            <a href="#" className="hover:text-white/90 transition-colors">Twitter / X</a>
-            <a href="#" className="hover:text-white/90 transition-colors">Terms of Service</a>
+            <div className="text-white/40 mb-4">SOCIAL / CONNECT</div>
+            <a href="https://github.com/Shubham126710/Chronos" target="_blank" rel="noreferrer" className="hover:text-white/90 transition-colors">GitHub</a>
+            <a href="https://www.linkedin.com/in/upadhyay-shubham/" target="_blank" rel="noreferrer" className="hover:text-white/90 transition-colors">LinkedIn</a>
+            <a href="https://instagram.com/iamshubham_15" target="_blank" rel="noreferrer" className="hover:text-white/90 transition-colors">Instagram</a>
+            <a href="https://threads.net/@iamshubham_15" target="_blank" rel="noreferrer" className="hover:text-white/90 transition-colors">Threads</a>
+            <a href="https://iamshubham15.substack.com/" target="_blank" rel="noreferrer" className="hover:text-white/90 transition-colors">Substack</a>
+            
+            <div className="text-white/40 mt-4 mb-2">CONTACT</div>
+            <a href="mailto:shubham360upadhyay@gmail.com" className="hover:text-white/90 transition-colors normal-case tracking-normal">shubham360upadhyay@gmail.com</a>
+            <a href="tel:8897773251" className="hover:text-white/90 transition-colors">8897773251</a>
           </div>
         </div>
 
