@@ -9,6 +9,7 @@ import {
 import { HeroSection } from "../hero/HeroSection";
 import Footer from "@/components/ui/animated-footer";
 import { TextRoll } from "@/components/ui/text-roll";
+import { AnimatedHamburger } from "@/components/ui/animated-hamburger";
 
 import { useRouter } from "next/navigation";
 
@@ -64,7 +65,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
     <div className="min-h-screen bg-background text-foreground font-sans relative selection:bg-foreground selection:text-background">
       
       {/* 1. Dynamic Editorial Navigation */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/90 backdrop-blur-md border-b border-border">
+      <header className="fixed top-0 left-0 right-0 z-[101] bg-background/90 backdrop-blur-md border-b border-border">
         <div className="w-full px-4 sm:px-8 lg:px-12 py-4 flex items-center justify-between">
           <div className="flex items-center gap-6">
             {/* Logo Mark - Fixed */}
@@ -114,12 +115,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             >
               sign up / log in
             </button>
-            <button 
-              onClick={() => setIsMenuOpen(true)}
-              className="p-1 hover:text-foreground/70 transition-colors"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+            <AnimatedHamburger 
+              isOpen={isMenuOpen} 
+              setIsOpen={setIsMenuOpen} 
+              className="-mr-2"
+            />
           </div>
         </div>
       </header>
@@ -132,28 +132,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed inset-0 z-[100] bg-background flex flex-col"
+            className="fixed inset-0 z-[100] bg-background flex flex-col pt-20"
           >
-            <div className="w-full px-4 sm:px-8 lg:px-12 py-4 flex items-center justify-between border-b border-border">
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2 cursor-pointer shrink-0" onClick={() => setIsMenuOpen(false)}>
-                  <div className="flex gap-0.5">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="w-1.5 h-4 bg-foreground" />
-                    ))}
-                  </div>
-                  <span className="text-sm font-bold tracking-tight font-mono ml-2">CHRONOS</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 shrink-0">
-                <button 
-                  onClick={() => setIsMenuOpen(false)}
-                  className="p-1 hover:text-foreground/70 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
           
           <div className="flex-1 overflow-y-auto px-4 sm:px-8 lg:px-12 py-12 flex flex-col justify-center max-w-4xl mx-auto w-full">
             <nav className="flex flex-col gap-6 sm:gap-8">
