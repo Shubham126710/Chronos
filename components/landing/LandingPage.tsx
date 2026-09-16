@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { HeroSection } from "../hero/HeroSection";
 import Footer from "@/components/ui/animated-footer";
+import { TextRoll } from "@/components/ui/text-roll";
 
 import { useRouter } from "next/navigation";
 
@@ -167,10 +168,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
                   key={idx}
                   href={`#${item.id}`}
                   onClick={() => setIsMenuOpen(false)}
-                  className="text-3xl sm:text-5xl md:text-7xl font-medium tracking-tight hover:text-foreground/60 transition-colors border-b border-border/30 pb-4 flex items-baseline gap-4 group"
+                  className="border-b border-border/30 pb-4 flex items-baseline gap-4 group"
                 >
                   <span className="text-sm font-mono text-foreground/40 group-hover:text-foreground/60 transition-colors">0{idx + 1}</span>
-                  {item.label}
+                  <TextRoll className="text-3xl sm:text-5xl md:text-7xl font-medium tracking-tight">
+                    {item.label}
+                  </TextRoll>
                 </a>
               ))}
               <div className="pt-8 flex flex-col sm:flex-row gap-6 sm:gap-12">
