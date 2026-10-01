@@ -38,9 +38,28 @@ export function useProjects() {
     },
   });
 
+  const createProjectMutation = useMutation({
+    mutationFn: async (newProject: Partial<ProjectItem>) => {
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newProject.name,
+          description: newProject.description,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create project");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
   return {
     projects,
     isLoading,
     error,
+    createProject: (newProject: Partial<ProjectItem>) => createProjectMutation.mutate(newProject),
   };
 }

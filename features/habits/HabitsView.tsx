@@ -13,8 +13,21 @@ import {
 import { useHabits } from "./api/useHabits";
 
 export const HabitsView: React.FC = () => {
-  const { habits: fetchedHabits, isLoading, toggleHabit } = useHabits();
+  const { habits: fetchedHabits, isLoading, toggleHabit, createHabit } = useHabits();
   const habits = fetchedHabits || [];
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newHabitName, setNewHabitName] = useState("");
+  const [newHabitCategory, setNewHabitCategory] = useState("FITNESS");
+
+  const handleCreateHabit = () => {
+    if (newHabitName.trim()) {
+      createHabit({ title: newHabitName, category: newHabitCategory });
+      setIsModalOpen(false);
+      setNewHabitName("");
+      setNewHabitCategory("FITNESS");
+    }
+  };
 
   const toggleCheckIn = (id: string, currentState: boolean) => {
     toggleHabit(id, !currentState);
@@ -39,7 +52,10 @@ export const HabitsView: React.FC = () => {
           </p>
         </div>
 
-        <button className="px-4 py-2 border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all uppercase tracking-widest text-[10px]">
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="px-4 py-2 border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all uppercase tracking-widest text-[10px]"
+        >
           [ NEW HABIT CHALLENGE ]
         </button>
       </div>
@@ -150,6 +166,61 @@ export const HabitsView: React.FC = () => {
           </motion.div>
         ))}
       </div>
+      
+      {/* Habit Creation Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 font-mono">
+          <div className="bg-background border border-foreground max-w-md w-full p-6 space-y-6 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-border pb-4">
+              <h3 className="text-lg font-bold uppercase tracking-widest">New Habit Challenge</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-foreground/50 hover:text-foreground">✕</button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-foreground/60 block mb-1">Habit Name</label>
+                <input
+                  type="text"
+                  value={newHabitName}
+                  onChange={(e) => setNewHabitName(e.target.value)}
+                  className="w-full bg-background border border-border p-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+                  placeholder="E.g. Morning Workout"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-foreground/60 block mb-1">Category</label>
+                <select
+                  value={newHabitCategory}
+                  onChange={(e) => setNewHabitCategory(e.target.value)}
+                  className="w-full bg-background border border-border p-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+                >
+                  <option value="FITNESS">FITNESS</option>
+                  <option value="CODING">CODING</option>
+                  <option value="READING">READING</option>
+                  <option value="MINDFULNESS">MINDFULNESS</option>
+                  <option value="LEARNING">LEARNING</option>
+                </select>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-border mt-6">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-[10px] uppercase tracking-widest text-foreground/60 hover:text-foreground transition-colors"
+                >
+                  [ CANCEL ]
+                </button>
+                <button
+                  onClick={handleCreateHabit}
+                  className="px-6 py-2 text-[10px] uppercase tracking-widest bg-foreground text-background hover:bg-foreground/90 transition-colors"
+                >
+                  [ INITIATE PROTOCOL ]
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

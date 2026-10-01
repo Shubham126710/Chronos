@@ -3,7 +3,7 @@ import { prisma } from "../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]/route";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
@@ -14,16 +14,21 @@ export async function GET() {
     if (!dbUser) {
       return NextResponse.json({ success: false, message: "User session invalid. Please log out and log back in." }, { status: 401 });
     }
+
+    const { searchParams } = new URL(req.url);
+    const range = searchParams.get("range") || "7d";
+    const days = range === "90d" ? 90 : range === "30d" ? 30 : 7;
+
     // 1. Compute Productivity Score
     // Formula: Base 50 + (Tasks Completion Rate * 30) + (Habit Consistency * 20)
     // - Overdue tasks subtract points.
 
-    // Tasks: Total and Completed in last 7 days
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    // Tasks: Total and Completed in last N days
+    const rangeStartDate = new Date();
+    rangeStartDate.setDate(rangeStartDate.getDate() - days);
 
     const tasks = await prisma.task.findMany({
-      where: { userId, createdAt: { gte: sevenDaysAgo } }
+      where: { userId, createdAt: { gte: rangeStartDate } }
     });
 
     const completedTasks = tasks.filter(t => t.isCompleted).length;
@@ -33,14 +38,14 @@ export async function GET() {
     // Habits
     const habits = await prisma.habit.findMany({
       where: { userId },
-      include: { logs: { where: { date: { gte: sevenDaysAgo.toISOString().split('T')[0] } } } }
+      include: { logs: { where: { date: { gte: rangeStartDate.toISOString().split('T')[0] } } } }
     });
 
     let totalHabitLogs = 0;
     let completedHabitLogs = 0;
 
     habits.forEach(h => {
-      totalHabitLogs += 7; // Expect 7 logs per habit in last 7 days roughly
+      totalHabitLogs += days; // Expect 'days' logs per habit
       completedHabitLogs += h.logs.filter(l => l.completed).length;
     });
 
@@ -55,15 +60,15 @@ export async function GET() {
 
     // 2. Compute Weekly Focus Hours (Aggregated for Chart)
     const focusSessions = await prisma.focusSession.findMany({
-      where: { userId, completedAt: { gte: sevenDaysAgo } }
+      where: { userId, completedAt: { gte: rangeStartDate } }
     });
 
     let focusHoursThisWeek = 0;
     focusSessions.forEach(f => focusHoursThisWeek += (f.durationMinutes / 60));
 
-    // Construct array of last 7 days for Focus Chart
+    // Construct array of last N days for Focus Chart
     const focusData = [];
-    for (let i = 6; i >= 0; i--) {
+    for (let i = days - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -75,6 +80,8 @@ export async function GET() {
           dayMinutes += f.durationMinutes;
         }
       });
+      // Push only some days if 90 days to avoid huge array?
+      // For now push all. The chart can handle it.
       focusData.push({ day: shortDay, hours: Number((dayMinutes / 60).toFixed(1)) });
     }
 

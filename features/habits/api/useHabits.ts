@@ -68,6 +68,24 @@ export function useHabits() {
     },
   });
 
+  const createHabitMutation = useMutation({
+    mutationFn: async (newHabit: Partial<Habit>) => {
+      const res = await fetch("/api/habits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newHabit.title,
+          category: newHabit.category,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create habit");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["habits"] });
+    },
+  });
+
   return {
     habits,
     isLoading,
@@ -75,6 +93,7 @@ export function useHabits() {
     toggleHabit: (id: string, completed: boolean) => {
       const todayString = new Date().toISOString().split('T')[0];
       toggleHabitMutation.mutate({ id, date: todayString, completed });
-    }
+    },
+    createHabit: (newHabit: Partial<Habit>) => createHabitMutation.mutate(newHabit),
   };
 }

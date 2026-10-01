@@ -10,7 +10,7 @@
     <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
     <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
     <img src="https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white" alt="Prisma" />
-    <img src="https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
+    <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
     <img src="https://img.shields.io/badge/Gemini_AI-1E88E5?style=for-the-badge&logo=google&logoColor=white" alt="Gemini" />
   </p>
 
@@ -126,7 +126,7 @@ This project is built using modern, enterprise-ready web technologies tailored f
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **State Management**: [TanStack Query (React Query)](https://tanstack.com/query/latest)
 - **Database ORM**: [Prisma](https://www.prisma.io/)
-- **Database**: [SQLite](https://www.sqlite.org/) (Configurable to PostgreSQL)
+- **Database**: [PostgreSQL](https://www.postgresql.org/)
 - **AI Integration**: [Google Gemini](https://deepmind.google/technologies/gemini/)
 
 ### Project Structure

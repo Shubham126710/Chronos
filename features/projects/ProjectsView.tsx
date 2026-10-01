@@ -12,9 +12,22 @@ import {
 import { useProjects, ProjectItem } from "./api/useProjects";
 
 export const ProjectsView: React.FC = () => {
-  const { projects: fetchedProjects, isLoading } = useProjects();
+  const { projects: fetchedProjects, isLoading, createProject } = useProjects();
   const projects = fetchedProjects || [];
   const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDesc, setNewProjectDesc] = useState("");
+
+  const handleCreateProject = () => {
+    if (newProjectName.trim()) {
+      createProject({ name: newProjectName, description: newProjectDesc });
+      setIsModalOpen(false);
+      setNewProjectName("");
+      setNewProjectDesc("");
+    }
+  };
 
   React.useEffect(() => {
     if (projects.length > 0 && !selectedProject) {
@@ -41,7 +54,10 @@ export const ProjectsView: React.FC = () => {
           </p>
         </div>
 
-        <button className="px-4 py-2 border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all uppercase tracking-widest text-[10px]">
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="px-4 py-2 border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all uppercase tracking-widest text-[10px]"
+        >
           [ NEW PROJECT ROADMAP ]
         </button>
       </div>
@@ -166,6 +182,56 @@ export const ProjectsView: React.FC = () => {
         ) : null}
         </div>
       </div>
+
+      {/* Project Creation Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 font-mono">
+          <div className="bg-background border border-foreground max-w-md w-full p-6 space-y-6 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-border pb-4">
+              <h3 className="text-lg font-bold uppercase tracking-widest">New Project Roadmap</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-foreground/50 hover:text-foreground">✕</button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-foreground/60 block mb-1">Project Name</label>
+                <input
+                  type="text"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  className="w-full bg-background border border-border p-2 text-sm text-foreground focus:outline-none focus:border-foreground"
+                  placeholder="E.g. Website Redesign"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-foreground/60 block mb-1">Description</label>
+                <textarea
+                  value={newProjectDesc}
+                  onChange={(e) => setNewProjectDesc(e.target.value)}
+                  className="w-full bg-background border border-border p-2 text-sm text-foreground focus:outline-none focus:border-foreground min-h-[100px]"
+                  placeholder="Project goals and overview..."
+                />
+              </div>
+
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-border mt-6">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-[10px] uppercase tracking-widest text-foreground/60 hover:text-foreground transition-colors"
+                >
+                  [ CANCEL ]
+                </button>
+                <button
+                  onClick={handleCreateProject}
+                  className="px-6 py-2 text-[10px] uppercase tracking-widest bg-foreground text-background hover:bg-foreground/90 transition-colors"
+                >
+                  [ CREATE ROADMAP ]
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

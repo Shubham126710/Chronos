@@ -13,7 +13,11 @@ import {
 import { useCalendar, TimeBlock } from "./api/useCalendar";
 
 export const CalendarView: React.FC = () => {
-  const { blocks: fetchedBlocks, isGoogleConnected, isLoading, createEvent, updateEvent, deleteEvent } = useCalendar(new Date().toISOString(), "day");
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  
+  // Format date for API (YYYY-MM-DD string)
+  const dateStr = currentDate.toISOString().split('T')[0];
+  const { blocks: fetchedBlocks, isGoogleConnected, isLoading, createEvent, updateEvent, deleteEvent } = useCalendar(dateStr, "day");
   const blocks = fetchedBlocks || [];
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,11 +34,10 @@ export const CalendarView: React.FC = () => {
 
   const handleSave = () => {
     if (editingBlock) {
-      const today = new Date().toISOString().split('T')[0];
       if (editingBlock.id) {
-        updateEvent({ ...editingBlock, date: today } as any);
+        updateEvent({ ...editingBlock, date: dateStr } as any);
       } else {
-        createEvent({ ...editingBlock, date: today } as any);
+        createEvent({ ...editingBlock, date: dateStr } as any);
       }
     }
     setIsModalOpen(false);
@@ -46,6 +49,25 @@ export const CalendarView: React.FC = () => {
     }
     setIsModalOpen(false);
   };
+
+  const handlePrevDay = () => {
+    setCurrentDate((prev) => {
+      const next = new Date(prev);
+      next.setDate(prev.getDate() - 1);
+      return next;
+    });
+  };
+
+  const handleNextDay = () => {
+    setCurrentDate((prev) => {
+      const next = new Date(prev);
+      next.setDate(prev.getDate() + 1);
+      return next;
+    });
+  };
+
+  const isToday = new Date().toISOString().split('T')[0] === dateStr;
+  const displayDate = isToday ? "Today" : currentDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
   const timeSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 
@@ -77,11 +99,11 @@ export const CalendarView: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-[10px] font-mono uppercase tracking-widest text-foreground/60">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <button className="hover:text-foreground transition-colors">
+            <button onClick={handlePrevDay} className="hover:text-foreground transition-colors">
               {"<"}
             </button>
-            <span className="text-foreground">Today</span>
-            <button className="hover:text-foreground transition-colors">
+            <span className="text-foreground min-w-[80px] text-center">{displayDate}</span>
+            <button onClick={handleNextDay} className="hover:text-foreground transition-colors">
               {">"}
             </button>
           </div>
