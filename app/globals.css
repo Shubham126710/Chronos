@@ -87,7 +87,7 @@ body {
 
 /* Dither overlay */
 .bg-dither {
-  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+  background-image: url("/noise.svg");
   background-repeat: repeat;
   opacity: 0.4;
   mix-blend-mode: multiply;

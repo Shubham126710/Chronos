@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]/route";
+import { authOptions } from "../../../lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,18 +13,23 @@ export async function GET() {
   const userId = (session.user as any).id;
 
   const encoder = new TextEncoder();
+  let interval: NodeJS.Timeout;
 
   const customReadable = new ReadableStream({
-    async start(controller) {
+    start(controller) {
       // Send initial connection confirmation
       const initMessage = `data: ${JSON.stringify({ type: "CONNECTED", timestamp: new Date().toISOString() })}\n\n`;
       controller.enqueue(encoder.encode(initMessage));
 
       // Simulate periodic live system heartbeats and real-time intelligence events every 15 seconds
-      const interval = setInterval(async () => {
+      interval = setInterval(async () => {
         try {
           const user = await prisma.user.findUnique({ where: { id: userId } });
-          if (!user) return;
+          if (!user) {
+            clearInterval(interval);
+            controller.close();
+            return;
+          }
 
           // Emit a live heartbeat with updated stats
           const eventPayload = {
@@ -42,11 +47,10 @@ export async function GET() {
           console.error("SSE Heartbeat error:", err);
         }
       }, 15000);
-
-      // Clean up on close
-      return () => {
-        clearInterval(interval);
-      };
+    },
+    cancel() {
+      // Clean up on close properly using Web Streams API
+      clearInterval(interval);
     },
   });
 

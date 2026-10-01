@@ -4,7 +4,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import { prisma } from "../../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { authOptions } from "../../../../lib/auth";
 
 export async function POST(req: Request) {
   try {
@@ -79,8 +79,8 @@ export async function POST(req: Request) {
       const google = createGoogleGenerativeAI({
         apiKey: process.env.GEMINI_API_KEY,
       });
-      // default to 3.6-flash as requested
-      const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+      // default to 2.0-flash
+      const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
       aiModel = google(modelName);
     } else if (provider === "groq") {
       return NextResponse.json({ success: false, message: "Groq provider not yet implemented" }, { status: 501 });

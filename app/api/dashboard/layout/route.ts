@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { authOptions } from "../../../../lib/auth";
 
 export async function GET() {
   try {
@@ -59,26 +59,33 @@ export async function POST(req: Request) {
       });
 
       if (body.copyFromId) {
-        const sourceWidgets = await prisma.dashboardWidget.findMany({
-          where: { layoutId: body.copyFromId },
+        // Enforce ownership check for copyFromId
+        const sourceLayout = await prisma.dashboardLayout.findFirst({
+          where: { id: body.copyFromId, userId: userId }
         });
         
-        for (const w of sourceWidgets) {
-          await prisma.dashboardWidget.create({
-            data: {
-              layoutId: newLayout.id,
-              widgetType: w.widgetType,
-              order: w.order,
-              colSpan: w.colSpan,
-              rowSpan: w.rowSpan,
-              isVisible: w.isVisible,
-              isPinned: w.isPinned,
-              isCollapsed: w.isCollapsed,
-              theme: w.theme,
-              refreshInterval: w.refreshInterval,
-              customSettings: w.customSettings,
-            },
+        if (sourceLayout) {
+          const sourceWidgets = await prisma.dashboardWidget.findMany({
+            where: { layoutId: body.copyFromId },
           });
+          
+          for (const w of sourceWidgets) {
+            await prisma.dashboardWidget.create({
+              data: {
+                layoutId: newLayout.id,
+                widgetType: w.widgetType,
+                order: w.order,
+                colSpan: w.colSpan,
+                rowSpan: w.rowSpan,
+                isVisible: w.isVisible,
+                isPinned: w.isPinned,
+                isCollapsed: w.isCollapsed,
+                theme: w.theme,
+                refreshInterval: w.refreshInterval,
+                customSettings: w.customSettings,
+              },
+            });
+          }
         }
       }
 
@@ -86,6 +93,15 @@ export async function POST(req: Request) {
     }
 
     if (action === "switch-default" && layoutId) {
+      // Check ownership before switching
+      const layout = await prisma.dashboardLayout.findFirst({
+        where: { id: layoutId, userId: userId }
+      });
+      
+      if (!layout) {
+        return NextResponse.json({ success: false, message: "Layout not found or unauthorized" }, { status: 404 });
+      }
+
       await prisma.dashboardLayout.updateMany({
         where: { userId: userId },
         data: { isDefault: false },
@@ -103,18 +119,30 @@ export async function POST(req: Request) {
     if (action === "update-widgets" && Array.isArray(widgets)) {
       for (const w of widgets) {
         if (w.id) {
-          await prisma.dashboardWidget.update({
-            where: { id: w.id },
-            data: {
-              order: w.order !== undefined ? w.order : undefined,
-              colSpan: w.colSpan !== undefined ? w.colSpan : undefined,
-              rowSpan: w.rowSpan !== undefined ? w.rowSpan : undefined,
-              isVisible: w.isVisible !== undefined ? w.isVisible : undefined,
-              isPinned: w.isPinned !== undefined ? w.isPinned : undefined,
-              isCollapsed: w.isCollapsed !== undefined ? w.isCollapsed : undefined,
-              theme: w.theme !== undefined ? w.theme : undefined,
-            },
+          // Find the widget first to verify ownership of its parent layout
+          const existingWidget = await prisma.dashboardWidget.findFirst({
+            where: {
+              id: w.id,
+              layout: {
+                userId: userId
+              }
+            }
           });
+          
+          if (existingWidget) {
+            await prisma.dashboardWidget.update({
+              where: { id: w.id },
+              data: {
+                order: w.order !== undefined ? w.order : undefined,
+                colSpan: w.colSpan !== undefined ? w.colSpan : undefined,
+                rowSpan: w.rowSpan !== undefined ? w.rowSpan : undefined,
+                isVisible: w.isVisible !== undefined ? w.isVisible : undefined,
+                isPinned: w.isPinned !== undefined ? w.isPinned : undefined,
+                isCollapsed: w.isCollapsed !== undefined ? w.isCollapsed : undefined,
+                theme: w.theme !== undefined ? w.theme : undefined,
+              },
+            });
+          }
         }
       }
       return NextResponse.json({ success: true, message: "Widgets layout updated successfully" });

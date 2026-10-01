@@ -5,7 +5,7 @@ export default function DitherShaderDemo() {
   return (
     <div className="w-full relative overflow-hidden rounded opacity-70">
       <DitherShader
-        src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop"
+        src="/images/dither-bg.jpg"
         gridSize={2}
         ditherMode="bayer"
         colorMode="grayscale"

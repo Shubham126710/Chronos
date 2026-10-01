@@ -1,3 +1,4 @@
+import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface NoteItem {
@@ -47,7 +48,7 @@ export function useNotes() {
     },
   });
 
-  const getNoteContent = async (id: string) => {
+  const getNoteContent = React.useCallback(async (id: string) => {
     if (id.startsWith("notion-")) {
       const res = await fetch(`/api/integrations/notion/pages/${id}`);
       if (res.ok) {
@@ -57,7 +58,7 @@ export function useNotes() {
     }
     // Local notes content is already loaded in list
     return null;
-  };
+  }, []);
 
   const updateNoteMutation = useMutation({
     mutationFn: async ({ id, title, content }: { id: string; title: string; content: string }) => {
@@ -91,12 +92,20 @@ export function useNotes() {
     },
   });
 
+  const updateNote = React.useCallback((id: string, title: string, content: string) => {
+    updateNoteMutation.mutate({ id, title, content });
+  }, [updateNoteMutation]);
+
+  const createNote = React.useCallback((newNote: Partial<NoteItem>) => {
+    createNoteMutation.mutate(newNote);
+  }, [createNoteMutation]);
+
   return {
     notes,
     isLoading,
     error,
     getNoteContent,
-    updateNote: (id: string, title: string, content: string) => updateNoteMutation.mutate({ id, title, content }),
-    createNote: (newNote: Partial<NoteItem>) => createNoteMutation.mutate(newNote),
+    updateNote,
+    createNote,
   };
 }
