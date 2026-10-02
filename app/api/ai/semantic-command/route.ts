@@ -386,89 +386,44 @@ export async function POST(req: Request) {
       })
     };
 
-    let currentStep = 0;
     let messages: any[] = [{ role: "user", content: query }];
     let aiResponseData = null;
 
-    while (currentStep < 5) {
-      let result;
-      try {
-        console.log("SENDING MESSAGES TO AI:", JSON.stringify(messages, null, 2));
-        result = await generateText({
-          model: aiModel,
-          system: systemContext,
-          messages,
-          tools,
-        });
-      } catch (e: any) {
-        console.error("[AI Provider Error] Request failed:");
-        console.error(`  Provider: ${provider}`);
-        console.error(`  Model: ${process.env.GEMINI_MODEL || 'gemini-3.6-flash'}`);
-        console.error(`  Status: ${e?.statusCode || e?.status || 'Unknown'}`);
-        console.error(`  Error Type: ${e?.name || typeof e}`);
-        console.error(`  Message: ${e?.message || e}`);
-        throw new Error(`AI_PROVIDER_ERROR: ${e?.message || "Unknown error"}`);
-      }
+    try {
+      console.log("SENDING MESSAGES TO AI:", JSON.stringify(messages, null, 2));
+      const result = await generateText({
+        model: aiModel,
+        system: systemContext,
+        messages,
+        tools,
+        maxSteps: 5,
+      });
 
-      const toolCalls = result.toolCalls || [];
-      const toolResults = [];
-      let responded = false;
-
-      for (const call of toolCalls) {
-        const callArgs = 'args' in call ? call.args : (call as any).input;
-        if (call.toolName === 'respondToUser') {
-          aiResponseData = callArgs;
-          responded = true;
+      // Find the step where respondToUser was called
+      for (const step of result.steps || []) {
+        const respondCall = step.toolCalls.find(tc => tc.toolName === 'respondToUser');
+        if (respondCall) {
+          aiResponseData = 'args' in respondCall ? respondCall.args : (respondCall as any).input;
           break;
-        } else {
-          // Use type assertion since we dynamically index tools
-          const toolInstance = (tools as any)[call.toolName];
-          if (toolInstance && typeof toolInstance.execute === 'function') {
-            try {
-              const res = await toolInstance.execute(callArgs);
-              toolResults.push({
-                type: "tool-result",
-                toolCallId: call.toolCallId,
-                toolName: call.toolName,
-                result: res
-              });
-            } catch (e) {
-              toolResults.push({
-                type: "tool-result",
-                toolCallId: call.toolCallId,
-                toolName: call.toolName,
-                result: { error: "Tool execution encountered an exception." },
-                isError: true
-              });
-            }
-          }
         }
       }
 
-      if (responded) break;
-
-      if (toolCalls.length === 0) {
-        break; // Model didn't call any tools and didn't respondToUser
+      // Fallback if SDK version doesn't return steps
+      if (!aiResponseData && result.toolCalls) {
+        const respondCall = result.toolCalls.find(tc => tc.toolName === 'respondToUser');
+        if (respondCall) {
+          aiResponseData = 'args' in respondCall ? respondCall.args : (respondCall as any).input;
+        }
       }
 
-      messages.push({
-        role: "assistant",
-        content: [
-          ...(result.text ? [{ type: "text" as const, text: result.text }] : []),
-          ...toolCalls.map(tc => ({
-            type: "tool-call" as const,
-            toolCallId: tc.toolCallId,
-            toolName: tc.toolName,
-            args: 'args' in tc ? tc.args : (tc as any).input
-          }))
-        ]
-      });
-      messages.push({
-        role: "tool",
-        content: toolResults
-      });
-
-      currentStep++;
+    } catch (e: any) {
+      console.error("[AI Provider Error] Request failed:");
+      console.error(`  Provider: ${provider}`);
+      console.error(`  Model: ${process.env.GEMINI_MODEL || 'gemini-3.6-flash'}`);
+      console.error(`  Status: ${e?.statusCode || e?.status || 'Unknown'}`);
+      console.error(`  Error Type: ${e?.name || typeof e}`);
+      console.error(`  Message: ${e?.message || e}`);
+      throw new Error(`AI_PROVIDER_ERROR: ${e?.message || "Unknown error"}`);
     }
 
     if (!aiResponseData) {
