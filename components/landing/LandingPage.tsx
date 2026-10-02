@@ -22,7 +22,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const sections = [
-    "system", "how-it-works", "intelligence", "features", "pricing"
+    "system", "how-it-works", "intelligence", "features", "faq"
   ];
 
   const integrations = [
@@ -142,7 +142,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
                 { label: "How it works", id: "how-it-works" },
                 { label: "Intelligence", id: "intelligence" },
                 { label: "Features", id: "features" },
-                { label: "Pricing", id: "pricing" },
+                { label: "FAQ", id: "faq" },
               ].map((item, idx) => (
                 <a
                   key={idx}
@@ -366,53 +366,45 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
         </div>
       </section>
 
-      {/* 05 — PRICING & CTA */}
-      <section id="pricing" className="py-32 px-4 sm:px-8 lg:px-12">
+      {/* 05 — FAQ */}
+      <section id="faq" className="py-32 px-4 sm:px-8 lg:px-12">
         <div className="max-w-[90vw] mx-auto w-full relative">
           
-          <div className="flex flex-col items-start gap-12">
-            <h2 className="text-5xl sm:text-7xl lg:text-8xl font-medium tracking-tighter leading-[0.9]">
-              system<br/>
-              pricing<br/>
-              access.
+          <div className="flex flex-col md:flex-row items-start gap-12 md:gap-24">
+            <h2 className="text-5xl sm:text-7xl lg:text-8xl font-medium tracking-tighter leading-[0.9] md:sticky md:top-32">
+              frequently<br/>
+              asked<br/>
+              questions.
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-border w-full max-w-4xl">
-              
-              <div className="p-8 sm:p-12 border-b md:border-b-0 md:border-r border-border">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-foreground/50 mb-8">LOCAL SYSTEM</div>
-                <div className="text-5xl font-medium mb-2">$0<span className="text-xl text-foreground/50 font-light">/mo</span></div>
-                <p className="text-sm text-foreground/60 mb-8 pb-8 border-b border-border">
-                  Everything required for personal life management and local development.
-                </p>
-                <ul className="space-y-3 text-[10px] font-mono uppercase tracking-widest text-foreground/80">
-                  <li>+ unlimited tasks & goals</li>
-                  <li>+ habit tracking & heatmaps</li>
-                  <li>+ local heuristic engine</li>
-                  <li>+ open source core</li>
-                </ul>
-                <button onClick={onEnterApp} className="w-full mt-12 py-4 bg-foreground text-background font-medium hover:bg-foreground/90 transition-colors uppercase text-xs tracking-widest font-mono">
-                  initialize
-                </button>
-              </div>
-
-              <div className="p-8 sm:p-12">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-[#FF8C61] mb-8">CLOUD / PRO</div>
-                <div className="text-5xl font-medium mb-2">$12<span className="text-xl text-foreground/50 font-light">/mo</span></div>
-                <p className="text-sm text-foreground/60 mb-8 pb-8 border-b border-border">
-                  For users requiring continuous cloud sync, advanced LLM inference, and team spaces.
-                </p>
-                <ul className="space-y-3 text-[10px] font-mono uppercase tracking-widest text-foreground/80">
-                  <li>+ cross-device real-time sync</li>
-                  <li>+ gemini / claude integration</li>
-                  <li>+ calendar 2-way sync</li>
-                  <li>+ priority support</li>
-                </ul>
-                <button onClick={onEnterApp} className="w-full mt-12 py-4 border border-foreground text-foreground font-medium hover:bg-surface-hover transition-colors uppercase text-xs tracking-widest font-mono">
-                  upgrade
-                </button>
-              </div>
-
+            <div className="flex flex-col w-full max-w-3xl border-t border-border">
+              {[
+                {
+                  q: "Is Chronos really free?",
+                  a: "Yes. Chronos is currently in its early-access phase and is completely free to use. We plan to introduce a paid tier for advanced cloud sync and premium LLM usage later once the ecosystem matures."
+                },
+                {
+                  q: "How does the AI scheduling work?",
+                  a: "Chronos utilizes a heuristic-based engine combined with external LLM fallbacks (Gemini, Groq, OpenRouter, Mistral) to analyze your goals, habits, and tasks, automatically time-blocking them into your connected calendar."
+                },
+                {
+                  q: "Do I need to provide my own API keys?",
+                  a: "For advanced semantic operations, yes. You can provide your own API keys in the Vercel environment to enable the AI engine. We use a graceful degradation system to ensure maximum uptime across free-tier models."
+                },
+                {
+                  q: "Is my data secure?",
+                  a: "Your primary data is stored securely. AI requests are routed strictly through industry-standard providers, and you have full control over which models process your natural language commands."
+                }
+              ].map((faq, idx) => (
+                <div key={idx} className="group border-b border-border py-8">
+                  <h3 className="text-xl sm:text-2xl font-medium mb-4 group-hover:text-foreground/70 transition-colors">
+                    {faq.q}
+                  </h3>
+                  <p className="text-sm md:text-base text-foreground/60 leading-relaxed font-mono">
+                    {faq.a}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
 
