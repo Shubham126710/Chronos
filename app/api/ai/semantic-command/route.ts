@@ -377,7 +377,7 @@ export async function POST(req: Request) {
               "CREATE_GOAL", "UPDATE_GOAL", "DELETE_GOAL", 
               "CREATE_HABIT", "LOG_HABIT", "SEND_EMAIL_REPLY"
             ]),
-            payload: z.record(z.unknown()).describe("The data payload for the operation (e.g. { title, priority } for CREATE_TASK)")
+            payload: z.record(z.string(), z.any()).describe("The data payload for the operation (e.g. { title, priority } for CREATE_TASK)")
           })).optional().describe("Array of database operations to propose to the user.")
         }),
         // @ts-ignore
