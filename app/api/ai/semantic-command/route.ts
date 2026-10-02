@@ -104,6 +104,7 @@ export async function POST(req: Request) {
       5. CONTEXTUAL AWARENESS: If the user asks to plan their day, prepare for tomorrow, or what's important, combine data from getTasks, getCalendarEvents, and searchGmail to provide a comprehensive proposed schedule.
       6. COMPLEX PLANNING: If the user asks for a multi-day plan (e.g., "7 day DSA plan") or a large project (e.g., "GATE prep plan"), break it down into MULTIPLE operations! You can propose an array of 10+ CREATE_EVENT or CREATE_TASK operations. Spread them out across the days using correct ISO 8601 dates. 
       7. DATES: Always use proper ISO 8601 strings for dates (e.g. "2026-10-02T10:00:00Z"). Calculate future dates based on the Current Date & Time.
+      8. UI RESPONSE: When calling respondToUser, you MUST provide a clear 'title', a 1-2 sentence 'summary', a short 'actionLabel' for the confirm button, and a 'details' array with 3-4 bullet points explaining your plan. Never leave these empty!
     `;
 
     // Define tools
@@ -378,14 +379,12 @@ export async function POST(req: Request) {
               "CREATE_GOAL", "UPDATE_GOAL", "DELETE_GOAL", 
               "CREATE_HABIT", "LOG_HABIT", "SEND_EMAIL_REPLY"
             ]),
-            payload: z.record(z.string(), z.any()).describe(
-              "The exact data payload for the operation.\n" +
-              "- CREATE_TASK: { title: string, description?: string, priority?: 'LOW'|'MEDIUM'|'HIGH'|'CRITICAL', estimatedMinutes?: number, dueDate?: string (ISO 8601) }\n" +
-              "- CREATE_EVENT: { title: string, description?: string, startTime: string (ISO 8601), endTime: string (ISO 8601), category?: string }\n" +
-              "- CREATE_HABIT: { title: string, category?: string, targetDays?: number }\n" +
-              "- CREATE_GOAL: { title: string, description?: string, status?: string, progress?: number }"
+            payload: z.any().describe(
+              "Data payload for the operation.\n" +
+              "- CREATE_TASK: { title, description?, priority?, estimatedMinutes?, dueDate? }\n" +
+              "- CREATE_EVENT: { title, description?, startTime, endTime, category? }"
             )
-          })).optional().describe("Array of database operations to propose to the user.")
+          })).optional().describe("Array of proposed database operations.")
         }),
         // @ts-ignore
         execute: async (args: any) => {
@@ -407,12 +406,16 @@ export async function POST(req: Request) {
         stopWhen: isStepCount(5),
       });
 
-      // Find the step where respondToUser was called
+      // Find the step where respondToUser was successfully called with valid data
       for (const step of result.steps || []) {
         const respondCall = step.toolCalls.find(tc => tc.toolName === 'respondToUser');
         if (respondCall) {
-          aiResponseData = 'args' in respondCall ? respondCall.args : (respondCall as any).input;
-          break;
+          const args = 'args' in respondCall ? respondCall.args : (respondCall as any).input;
+          // Only accept if the required fields actually exist (prevents hallucinated empty objects)
+          if (args && args.title && args.summary && Array.isArray(args.details)) {
+            aiResponseData = args;
+            break;
+          }
         }
       }
 
@@ -420,7 +423,10 @@ export async function POST(req: Request) {
       if (!aiResponseData && result.toolCalls) {
         const respondCall = result.toolCalls.find(tc => tc.toolName === 'respondToUser');
         if (respondCall) {
-          aiResponseData = 'args' in respondCall ? respondCall.args : (respondCall as any).input;
+          const args = 'args' in respondCall ? respondCall.args : (respondCall as any).input;
+          if (args && args.title && args.summary && Array.isArray(args.details)) {
+            aiResponseData = args;
+          }
         }
       }
 
@@ -434,7 +440,7 @@ export async function POST(req: Request) {
       throw new Error(`AI_PROVIDER_ERROR: ${e?.message || "Unknown error"}`);
     }
 
-    if (!aiResponseData) {
+    if (!aiResponseData || !aiResponseData.title) {
       aiResponseData = {
         title: "AI Analysis Complete",
         summary: "I analyzed your request but did not formulate a structured UI response.",
