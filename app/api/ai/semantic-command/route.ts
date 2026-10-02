@@ -79,8 +79,7 @@ export async function POST(req: Request) {
       const google = createGoogleGenerativeAI({
         apiKey: process.env.GEMINI_API_KEY,
       });
-      // default to 1.5-flash, ignoring potentially bad env vars like gemini-3.6-flash
-      const modelName = 'gemini-1.5-flash';
+      const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
       aiModel = google(modelName);
     } else if (provider === "groq") {
       return NextResponse.json({ success: false, message: "Groq provider not yet implemented" }, { status: 501 });
