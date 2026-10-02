@@ -70,28 +70,28 @@ export async function POST(req: Request) {
       availableModels.push(google(process.env.GEMINI_MODEL || 'gemini-1.5-flash'));
     }
 
-    // 2. Groq (Fast Fallback)
+    // 2. Groq (Fast Fallback - High Tool Use Capability)
     if (process.env.GROQ_API_KEY) {
       const groq = createOpenAI({
         baseURL: 'https://api.groq.com/openai/v1',
         apiKey: process.env.GROQ_API_KEY,
       });
-      availableModels.push(groq('llama3-8b-8192'));
+      availableModels.push(groq(process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'));
     }
 
-    // 3. OpenRouter (Free Router Models)
+    // 3. OpenRouter (Free Router Models with Tool Support)
     if (process.env.OPENROUTER_API_KEY) {
       const openrouter = createOpenAI({
         baseURL: 'https://openrouter.ai/api/v1',
         apiKey: process.env.OPENROUTER_API_KEY,
       });
-      availableModels.push(openrouter('openrouter/auto'));
+      availableModels.push(openrouter(process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free'));
     }
 
     // 4. Mistral AI
     if (process.env.MISTRAL_API_KEY) {
       const mistral = createMistral({ apiKey: process.env.MISTRAL_API_KEY });
-      availableModels.push(mistral('mistral-large-latest'));
+      availableModels.push(mistral(process.env.MISTRAL_MODEL || 'mistral-large-latest'));
     }
 
     if (availableModels.length === 0) {
