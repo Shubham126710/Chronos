@@ -9,6 +9,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { TabType } from "./Sidebar";
+import { ThinkingOrb } from "@/components/ui/thinking-orbs";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -248,11 +249,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           {/* If thinking */}
           {isThinking && (
             <div className="py-16 flex flex-col items-center justify-center text-center space-y-6">
-              <div className="relative flex items-center justify-center w-16 h-16">
-                <div className="absolute inset-0 rounded-full border-t-2 border-l-2 border-foreground/80 animate-spin" />
-                <div className="absolute inset-2 rounded-full border-b-2 border-r-2 border-foreground/30 animate-spin animation-delay-150" />
-                <Brain className="w-6 h-6 text-foreground animate-pulse" />
-              </div>
+              <span className="[&_canvas]:!size-16 relative flex items-center justify-center w-16 h-16 mb-2">
+                <ThinkingOrb state="working" size={64} theme="dark" />
+              </span>
               <div className="space-y-2">
                 <p className="text-xs font-bold tracking-[0.2em] uppercase text-foreground">Processing Command</p>
                 <p className="text-[10px] font-mono tracking-wider text-foreground/40 uppercase">Analyzing cognitive load & temporal constraints...</p>
