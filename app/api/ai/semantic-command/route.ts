@@ -492,7 +492,7 @@ export async function POST(req: Request) {
       );
     }
     return NextResponse.json(
-      { success: false, message: "AI processing failed." },
+      { success: false, message: `AI processing failed. Details: ${error?.message || "Unknown"}` },
       { status: 500 }
     );
   }
