@@ -175,7 +175,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           title: "Execution Successful",
           summary: "I have successfully applied these changes to your system.",
           actionLabel: "Done",
-          details: activeResponse.operations.map(op => `Successfully executed: ${op.type}`),
+          details: (Array.isArray(activeResponse.operations) ? activeResponse.operations : []).map(op => `Successfully executed: ${op.type}`),
           operations: [],
         });
         queryClient.invalidateQueries();
@@ -279,7 +279,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
               <div className="space-y-2 pt-2">
                 <span className="text-xs font-semibold text-foreground uppercase tracking-wider block">Execution Roadmap:</span>
-                {activeResponse.details.map((detail, idx) => (
+                {(Array.isArray(activeResponse.details) ? activeResponse.details : []).map((detail, idx) => (
                   <div key={idx} className="flex items-start gap-2 text-xs text-foreground/80 bg-foreground/5 p-2.5 rounded-xl border border-border">
                     <CheckCircle2 className="w-4 h-4 text-foreground shrink-0 mt-0.5" />
                     <span>{detail}</span>
