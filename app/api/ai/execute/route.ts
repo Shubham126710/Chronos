@@ -7,15 +7,22 @@ import { z } from "zod";
 const TaskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional().default("MEDIUM"),
-  estimatedMinutes: z.number().optional().default(30),
+  priority: z.string().optional().transform(val => {
+    const v = val?.toUpperCase();
+    return ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(v as string) ? v : "MEDIUM";
+  }),
+  estimatedMinutes: z.coerce.number().optional().default(30),
   dueDate: z.string().optional(),
 });
 
 const TaskUpdateSchema = z.object({
   id: z.string(),
   title: z.string().optional(),
-  priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
+  priority: z.string().optional().transform(val => {
+    if (!val) return undefined;
+    const v = val.toUpperCase();
+    return ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(v) ? v : undefined;
+  }),
   isCompleted: z.boolean().optional(),
   dueDate: z.string().optional(),
 });
@@ -39,20 +46,20 @@ const GoalSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   status: z.string().optional().default("ACTIVE"),
-  progress: z.number().optional().default(0),
+  progress: z.coerce.number().optional().default(0),
 });
 
 const GoalUpdateSchema = z.object({
   id: z.string(),
   title: z.string().optional(),
   status: z.string().optional(),
-  progress: z.number().optional(),
+  progress: z.coerce.number().optional(),
 });
 
 const HabitSchema = z.object({
   title: z.string().min(1, "Title is required"),
   category: z.string().optional().default("GENERAL"),
-  targetDays: z.number().optional().default(7),
+  targetDays: z.coerce.number().optional().default(7),
 });
 
 const SlackSchema = z.object({
@@ -72,6 +79,12 @@ const EmailReplySchema = z.object({
   to: z.string().optional(),
   subject: z.string().optional(),
 });
+
+function parseDateSafe(dateStr: string | undefined): Date | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 function markdownToNotionBlocks(markdown: string) {
   if (!markdown) return [];
@@ -160,7 +173,7 @@ export async function POST(req: Request) {
               description: data.description || "",
               priority: data.priority,
               estimatedMinutes: data.estimatedMinutes,
-              dueDate: data.dueDate ? new Date(data.dueDate) : null,
+              dueDate: parseDateSafe(data.dueDate),
             }
           });
           results.push({ type: op.type, status: "success", id: task.id });
@@ -179,7 +192,10 @@ export async function POST(req: Request) {
             if (data.title) updateData.title = data.title;
             if (data.priority) updateData.priority = data.priority;
             if (data.isCompleted !== undefined) updateData.isCompleted = data.isCompleted;
-            if (data.dueDate) updateData.dueDate = new Date(data.dueDate);
+            if (data.dueDate) {
+              const d = parseDateSafe(data.dueDate);
+              if (d) updateData.dueDate = d;
+            }
             
             await prisma.task.update({
               where: { id: data.id },
@@ -212,13 +228,20 @@ export async function POST(req: Request) {
             continue;
           }
           const data = parsed.data;
+          const sDate = parseDateSafe(data.startTime);
+          const eDate = parseDateSafe(data.endTime);
+          if (!sDate || !eDate) {
+            results.push({ type: op.type, status: "error", message: "Invalid dates provided" });
+            continue;
+          }
+
           const event = await prisma.calendarEvent.create({
             data: {
               userId,
               title: data.title,
               description: data.description || "",
-              startTime: new Date(data.startTime),
-              endTime: new Date(data.endTime),
+              startTime: sDate,
+              endTime: eDate,
               category: data.category,
             }
           });
@@ -244,8 +267,8 @@ export async function POST(req: Request) {
                 requestBody: {
                   summary: data.title,
                   description: data.description,
-                  start: { dateTime: new Date(data.startTime).toISOString() },
-                  end: { dateTime: new Date(data.endTime).toISOString() },
+                  start: { dateTime: sDate.toISOString() },
+                  end: { dateTime: eDate.toISOString() },
                   colorId: '9',
                 }
               });
@@ -267,8 +290,14 @@ export async function POST(req: Request) {
           if (existing && existing.userId === userId) {
             const updateData: any = {};
             if (data.title) updateData.title = data.title;
-            if (data.startTime) updateData.startTime = new Date(data.startTime);
-            if (data.endTime) updateData.endTime = new Date(data.endTime);
+            if (data.startTime) {
+              const d = parseDateSafe(data.startTime);
+              if (d) updateData.startTime = d;
+            }
+            if (data.endTime) {
+              const d = parseDateSafe(data.endTime);
+              if (d) updateData.endTime = d;
+            }
             
             await prisma.calendarEvent.update({
               where: { id: data.id },

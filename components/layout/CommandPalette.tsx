@@ -204,7 +204,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 bg-background/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
       {/* Backdrop click to close */}
       <div className="absolute inset-0" onClick={onClose} />
 
@@ -214,44 +214,48 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: -10 }}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-2xl rounded-2xl bg-background border border-border shadow-2xl overflow-hidden z-10 flex flex-col max-h-[80vh]"
+        className="relative w-full max-w-2xl rounded-2xl bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 shadow-[0_0_80px_rgba(255,255,255,0.03)] overflow-hidden z-10 flex flex-col max-h-[80vh]"
       >
         {/* Top Header / Search Input */}
-        <form onSubmit={handleCustomSubmit} className="p-4 border-b border-border flex items-center gap-3 bg-foreground/5">
-          <Sparkles className="w-5 h-5 text-foreground shrink-0 animate-pulse" />
+        <form onSubmit={handleCustomSubmit} className="p-5 border-b border-white/10 flex items-center gap-4 bg-white/[0.02]">
+          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white/10">
+            <Sparkles className="w-3.5 h-3.5 text-foreground animate-pulse" />
+          </div>
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask Chronos AI anything, or select a command below..."
-            className="w-full bg-transparent text-foreground placeholder-white/40 font-medium text-base focus:outline-none"
+            placeholder="Ask Chronos AI anything..."
+            className="w-full bg-transparent text-foreground placeholder-white/30 font-medium text-lg focus:outline-none tracking-wide"
           />
           {query && (
             <button
               type="button"
               onClick={() => { setQuery(""); setActiveResponse(null); }}
-              className="p-1 rounded-lg hover:bg-foreground/10 text-foreground/50 hover:text-foreground transition-colors"
+              className="p-1 rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="hidden sm:inline-block px-2 py-1 rounded bg-foreground/10 border border-white/10 font-mono text-[11px] text-foreground/60">
+          <kbd className="hidden sm:inline-block px-2 py-1 rounded bg-white/5 border border-white/10 font-mono text-[10px] uppercase tracking-wider text-white/50">
             ESC
           </kbd>
         </form>
 
         {/* Modal Content Area */}
-        <div className="p-4 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
+        <div className="p-5 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
           {/* If thinking */}
           {isThinking && (
-            <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-foreground flex items-center justify-center animate-spin">
-                <RefreshCw className="w-6 h-6 text-foreground" />
+            <div className="py-16 flex flex-col items-center justify-center text-center space-y-6">
+              <div className="relative flex items-center justify-center w-16 h-16">
+                <div className="absolute inset-0 rounded-full border-t-2 border-l-2 border-foreground/80 animate-spin" />
+                <div className="absolute inset-2 rounded-full border-b-2 border-r-2 border-foreground/30 animate-spin animation-delay-150" />
+                <Brain className="w-6 h-6 text-foreground animate-pulse" />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">Chronos AI is thinking...</p>
-                <p className="text-xs text-foreground/50 mt-1">Analyzing schedule, cognitive peaks, and upcoming deadlines...</p>
+              <div className="space-y-2">
+                <p className="text-xs font-bold tracking-[0.2em] uppercase text-foreground">Processing Command</p>
+                <p className="text-[10px] font-mono tracking-wider text-foreground/40 uppercase">Analyzing cognitive load & temporal constraints...</p>
               </div>
             </div>
           )}
