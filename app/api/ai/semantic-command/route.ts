@@ -9,10 +9,10 @@ import { authOptions } from "../../../../lib/auth";
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (false) {
+    if (!session || !session.user) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
     }
-    const userId = "test-user-id";
+    const userId = (session.user as any).id;
     const body = await req.json();
     const { query } = body;
 
@@ -79,8 +79,8 @@ export async function POST(req: Request) {
       const google = createGoogleGenerativeAI({
         apiKey: process.env.GEMINI_API_KEY,
       });
-      // default to 1.5-flash
-      const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+      // default to 1.5-flash, ignoring potentially bad env vars like gemini-3.6-flash
+      const modelName = 'gemini-1.5-flash';
       aiModel = google(modelName);
     } else if (provider === "groq") {
       return NextResponse.json({ success: false, message: "Groq provider not yet implemented" }, { status: 501 });
@@ -377,7 +377,7 @@ export async function POST(req: Request) {
               "CREATE_GOAL", "UPDATE_GOAL", "DELETE_GOAL", 
               "CREATE_HABIT", "LOG_HABIT", "SEND_EMAIL_REPLY"
             ]),
-            payload: z.any().describe("The data payload for the operation (e.g. { title, priority } for CREATE_TASK)")
+            payload: z.record(z.unknown()).describe("The data payload for the operation (e.g. { title, priority } for CREATE_TASK)")
           })).optional().describe("Array of database operations to propose to the user.")
         }),
         // @ts-ignore
