@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { generateText, tool, isStepCount } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createMistral } from "@ai-sdk/mistral";
 import { z } from "zod";
 import { prisma } from "../../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
@@ -60,33 +62,49 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Internal system error during rate limit check." }, { status: 500 });
     }
 
-    const provider = process.env.AI_PROVIDER || "gemini";
-    let aiModel;
+    const availableModels = [];
 
-    if (provider === "gemini") {
-      if (!process.env.GEMINI_API_KEY) {
-        return NextResponse.json({
-          success: true,
-          data: {
-            title: "AI Analysis (Fallback Mode)",
-            summary: "I parsed your query: " + query + ". However, the GEMINI_API_KEY is missing from environment variables, so I cannot perform semantic analysis.",
-            actionLabel: "Configure API Key",
-            details: ["Please add GEMINI_API_KEY to your .env file to enable semantic AI."],
-            operations: []
-          }
-        });
-      }
-      const google = createGoogleGenerativeAI({
-        apiKey: process.env.GEMINI_API_KEY,
+    // 1. Google Gemini (Primary)
+    if (process.env.GEMINI_API_KEY) {
+      const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
+      availableModels.push(google(process.env.GEMINI_MODEL || 'gemini-1.5-flash'));
+    }
+
+    // 2. Groq (Fast Fallback)
+    if (process.env.GROQ_API_KEY) {
+      const groq = createOpenAI({
+        baseURL: 'https://api.groq.com/openai/v1',
+        apiKey: process.env.GROQ_API_KEY,
       });
-      const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
-      aiModel = google(modelName);
-    } else if (provider === "groq") {
-      return NextResponse.json({ success: false, message: "Groq provider not yet implemented" }, { status: 501 });
-    } else if (provider === "qwen") {
-      return NextResponse.json({ success: false, message: "Qwen provider not yet implemented" }, { status: 501 });
-    } else {
-      return NextResponse.json({ success: false, message: "Invalid AI_PROVIDER configuration" }, { status: 400 });
+      availableModels.push(groq('llama3-8b-8192'));
+    }
+
+    // 3. OpenRouter (Free Router Models)
+    if (process.env.OPENROUTER_API_KEY) {
+      const openrouter = createOpenAI({
+        baseURL: 'https://openrouter.ai/api/v1',
+        apiKey: process.env.OPENROUTER_API_KEY,
+      });
+      availableModels.push(openrouter('openrouter/auto'));
+    }
+
+    // 4. Mistral AI
+    if (process.env.MISTRAL_API_KEY) {
+      const mistral = createMistral({ apiKey: process.env.MISTRAL_API_KEY });
+      availableModels.push(mistral('mistral-large-latest'));
+    }
+
+    if (availableModels.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          title: "AI Analysis (Fallback Mode)",
+          summary: "I parsed your query: " + query + ". However, no AI API keys are configured.",
+          actionLabel: "Configure API Key",
+          details: ["Please add GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, or MISTRAL_API_KEY to your .env file."],
+          operations: []
+        }
+      });
     }
 
     // System context injected into prompt
@@ -102,7 +120,7 @@ export async function POST(req: Request) {
       3. The user MUST confirm all operations in the UI. You do not execute mutations yourself, you just propose them.
       4. You MUST end your turn by calling the 'respondToUser' tool. Never respond in plain text to the user.
       5. CONTEXTUAL AWARENESS: If the user asks to plan their day, prepare for tomorrow, or what's important, combine data from getTasks, getCalendarEvents, and searchGmail to provide a comprehensive proposed schedule.
-      6. COMPLEX PLANNING: If the user asks for a multi-day plan (e.g., "7 day DSA plan") or a large project (e.g., "GATE prep plan"), break it down into MULTIPLE operations! You can propose an array of 10+ CREATE_EVENT or CREATE_TASK operations. Spread them out across the days using correct ISO 8601 dates. 
+      6. TIME BLOCKING & COMPLEX PLANNING: When the user types ANY goal, study plan, or project (e.g., "7 day DSA plan", "prepare for calculus"), you MUST break it down into granular steps. ALWAYS prefer time-blocking: create multiple 'CREATE_EVENT' operations to schedule specific study/work sessions on their calendar across different days, rather than just creating tasks. Use 'CREATE_TASK' for specific to-dos, and 'CREATE_EVENT' for dedicated focus time.
       7. DATES: Always use proper ISO 8601 strings for dates (e.g. "2026-10-02T10:00:00Z"). Calculate future dates based on the Current Date & Time.
       8. UI RESPONSE: When calling respondToUser, you MUST provide a clear 'title', a 1-2 sentence 'summary', a short 'actionLabel' for the confirm button, and a 'details' array with 3-4 bullet points explaining your plan. Never leave these empty!
     `;
@@ -395,20 +413,41 @@ export async function POST(req: Request) {
 
     let messages: any[] = [{ role: "user", content: query }];
     let aiResponseData = null;
+    let lastError: any = null;
+    let result: any = null;
+
+    console.log("SENDING MESSAGES TO AI:", JSON.stringify(messages, null, 2));
+
+    for (const model of availableModels) {
+      try {
+        result = await generateText({
+          model: model as any,
+          system: systemContext,
+          messages,
+          tools,
+          stopWhen: isStepCount(5),
+        });
+        // If we succeeded, break out of the fallback loop!
+        break;
+      } catch (err: any) {
+        console.error(`AI provider failed:`, err?.message || err);
+        lastError = err;
+        continue; // Try next fallback model
+      }
+    }
+
+    if (!result) {
+      console.error("All available AI models failed.");
+      return NextResponse.json({ 
+        success: false, 
+        message: lastError?.message || "All configured AI providers failed to process the request." 
+      }, { status: 500 });
+    }
 
     try {
-      console.log("SENDING MESSAGES TO AI:", JSON.stringify(messages, null, 2));
-      const result = await generateText({
-        model: aiModel,
-        system: systemContext,
-        messages,
-        tools,
-        stopWhen: isStepCount(5),
-      });
-
       // Find the step where respondToUser was successfully called with valid data
       for (const step of result.steps || []) {
-        const respondCall = step.toolCalls.find(tc => tc.toolName === 'respondToUser');
+        const respondCall = step.toolCalls.find((tc: any) => tc.toolName === 'respondToUser');
         if (respondCall) {
           const args = 'args' in respondCall ? respondCall.args : (respondCall as any).input;
           // Only accept if the required fields actually exist (prevents hallucinated empty objects)
@@ -421,7 +460,7 @@ export async function POST(req: Request) {
 
       // Fallback if SDK version doesn't return steps
       if (!aiResponseData && result.toolCalls) {
-        const respondCall = result.toolCalls.find(tc => tc.toolName === 'respondToUser');
+        const respondCall = result.toolCalls.find((tc: any) => tc.toolName === 'respondToUser');
         if (respondCall) {
           const args = 'args' in respondCall ? respondCall.args : (respondCall as any).input;
           if (args && args.title && args.summary && Array.isArray(args.details)) {
@@ -431,13 +470,8 @@ export async function POST(req: Request) {
       }
 
     } catch (e: any) {
-      console.error("[AI Provider Error] Request failed:");
-      console.error(`  Provider: ${provider}`);
-      console.error(`  Model: ${process.env.GEMINI_MODEL || 'gemini-3.6-flash'}`);
-      console.error(`  Status: ${e?.statusCode || e?.status || 'Unknown'}`);
-      console.error(`  Error Type: ${e?.name || typeof e}`);
-      console.error(`  Message: ${e?.message || e}`);
-      throw new Error(`AI_PROVIDER_ERROR: ${e?.message || "Unknown error"}`);
+      console.error("[AI Extraction Error] Failed to parse AI response:", e?.message || e);
+      return NextResponse.json({ success: false, message: "AI response extraction failed" }, { status: 500 });
     }
 
     if (!aiResponseData || !aiResponseData.title) {
