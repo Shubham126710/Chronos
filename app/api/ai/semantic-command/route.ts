@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generateText, tool } from "ai";
+import { generateText, tool, isStepCount } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { z } from "zod";
 import { prisma } from "../../../../lib/prisma";
@@ -396,7 +396,7 @@ export async function POST(req: Request) {
         system: systemContext,
         messages,
         tools,
-        maxSteps: 5,
+        stopWhen: isStepCount(5),
       });
 
       // Find the step where respondToUser was called
