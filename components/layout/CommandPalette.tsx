@@ -234,7 +234,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="What is your focus?"
-            className="w-full bg-transparent text-foreground placeholder:text-foreground/20 font-medium text-2xl sm:text-3xl tracking-tight focus:outline-none pl-32 pr-12 py-8 sm:py-12"
+            className="w-full bg-transparent text-foreground placeholder:text-foreground/20 font-medium text-xl sm:text-2xl tracking-tight focus:outline-none pl-32 pr-12 py-6 sm:py-8"
           />
           {query && (
             <button
