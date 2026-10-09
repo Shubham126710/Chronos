@@ -220,37 +220,35 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: -10 }}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-2xl rounded-2xl bg-[#0a0a0a]/95 backdrop-blur-2xl border border-white/10 shadow-[0_0_80px_rgba(255,255,255,0.03)] overflow-hidden z-10 flex flex-col max-h-[80vh]"
+        className="relative w-full max-w-3xl bg-[#070707] border border-white/10 shadow-2xl overflow-hidden z-10 flex flex-col max-h-[85vh] font-sans"
       >
         {/* Top Header / Search Input */}
-        <form onSubmit={handleCustomSubmit} className="p-5 border-b border-white/10 flex items-center gap-4 bg-white/[0.02]">
-          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white/10">
-            <Sparkles className="w-3.5 h-3.5 text-foreground animate-pulse" />
+        <form onSubmit={handleCustomSubmit} className="relative flex items-center w-full border-b border-white/10">
+          <div className="absolute left-6 text-foreground/40 font-mono text-[10px] uppercase tracking-widest flex items-center gap-2 pointer-events-none">
+            <span className="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-pulse" />
+            Command
           </div>
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask Chronos AI anything..."
-            className="w-full bg-transparent text-foreground placeholder-white/30 font-medium text-lg focus:outline-none tracking-wide"
+            placeholder="What is your focus?"
+            className="w-full bg-transparent text-foreground placeholder:text-foreground/20 font-medium text-2xl sm:text-3xl tracking-tight focus:outline-none pl-32 pr-12 py-8 sm:py-12"
           />
           {query && (
             <button
               type="button"
               onClick={() => { setQuery(""); setActiveResponse(null); }}
-              className="p-1 rounded-md hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              className="absolute right-6 p-2 text-foreground/40 hover:text-foreground transition-colors"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           )}
-          <kbd className="hidden sm:inline-block px-2 py-1 rounded bg-white/5 border border-white/10 font-mono text-[10px] uppercase tracking-wider text-white/50">
-            ESC
-          </kbd>
         </form>
 
         {/* Modal Content Area */}
-        <div className="p-5 overflow-y-auto space-y-6 flex-1 custom-scrollbar">
+        <div className="overflow-y-auto flex-1 custom-scrollbar bg-transparent">
           {/* If thinking */}
           {isThinking && (
             <div className="py-16 flex flex-col items-center justify-center text-center space-y-6">
@@ -276,19 +274,19 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   <Brain className="w-5 h-5 text-foreground" />
                   <h3 className="text-base font-bold text-foreground">{activeResponse.title}</h3>
                 </div>
-                <span className="text-[10px] font-mono uppercase bg-foreground/10 text-foreground px-2 py-0.5 rounded-full border border-foreground/20">
-                  AI Recommendation
+                <span className="text-[9px] font-mono uppercase tracking-widest text-foreground/50 border border-white/10 px-3 py-1">
+                  AI Directive
                 </span>
               </div>
 
-              <p className="text-sm text-foreground/90 leading-relaxed font-light">
+              <p className="text-lg md:text-xl text-foreground leading-relaxed font-light tracking-tight">
                 {activeResponse.summary}
               </p>
 
               <div className="space-y-2 pt-2">
-                <span className="text-xs font-semibold text-foreground uppercase tracking-wider block">Execution Roadmap:</span>
+                <span className="text-[10px] font-mono text-foreground/50 uppercase tracking-widest block mb-4">Execution Protocol:</span>
                 {(Array.isArray(activeResponse.details) ? activeResponse.details : []).map((detail, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-xs text-foreground/80 bg-foreground/5 p-2.5 rounded-xl border border-border">
+                  <div key={idx} className="flex items-start gap-4 text-sm text-foreground/80 py-3 border-b border-white/5">
                     <CheckCircle2 className="w-4 h-4 text-foreground shrink-0 mt-0.5" />
                     <span>{detail}</span>
                   </div>
@@ -323,46 +321,49 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
           {/* Quick Prompts List */}
           {!isThinking && !activeResponse && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-2">
-                <span className="text-xs font-mono uppercase tracking-widest text-foreground/40 font-semibold">
-                  Intelligent Suggestions
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-white/[0.01]">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/50">
+                  Suggested Directives
                 </span>
-                <span className="text-[11px] text-foreground">Click to execute AI workflow</span>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/30 hidden sm:inline-block">
+                  [ Click to execute ]
+                </span>
               </div>
 
-              <div className="space-y-2">
+              <div className="flex flex-col">
                 {quickPrompts.map((prompt, idx) => (
                   <button
                     key={idx}
                     type="button"
                     onClick={() => handleSelectPrompt(prompt)}
-                    className="w-full text-left p-3.5 rounded-xl bg-foreground/5 hover:bg-foreground/10 border border-border hover:border-border transition-all flex items-center justify-between group"
+                    className="w-full text-left px-6 py-5 border-b border-white/5 hover:bg-white/[0.02] hover:pl-8 transition-all duration-300 flex items-center justify-between group relative"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="p-2 rounded-lg bg-foreground/10 shrink-0">
+                    <div className="absolute left-0 top-0 bottom-0 w-0 group-hover:w-1 bg-foreground transition-all duration-300" />
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="text-foreground/30 group-hover:text-foreground transition-colors shrink-0">
                         {prompt.icon}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground group-hover:text-foreground transition-colors truncate">
-                          {prompt.title}
+                        <p className="text-base sm:text-lg font-medium text-foreground/90 group-hover:text-foreground transition-colors truncate tracking-tight">
+                          {prompt.title.replace(/[“”]/g, "")}
                         </p>
-                        <p className="text-xs text-foreground/50 truncate mt-0.5">
+                        <p className="text-[10px] sm:text-xs text-foreground/50 truncate mt-1 font-mono uppercase tracking-wider">
                           {prompt.subtitle}
                         </p>
                       </div>
                     </div>
-                    <ArrowRight className="w-4 h-4 text-foreground/40 group-hover:text-foreground group-hover:translate-x-1 transition-all shrink-0 ml-2" />
+                    <ArrowRight className="w-4 h-4 text-foreground/0 group-hover:text-foreground/50 transition-all shrink-0 ml-4 -translate-x-4 group-hover:translate-x-0" />
                   </button>
                 ))}
               </div>
 
               {/* Navigation Shortcuts */}
-              <div className="pt-4 border-t border-white/10">
-                <span className="text-xs font-mono uppercase tracking-widest text-foreground/40 font-semibold px-2 block mb-2">
-                  Module Navigation
+              <div className="px-6 py-6 bg-transparent">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/40 block mb-4">
+                  System Modules
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="flex flex-wrap gap-2 sm:gap-4">
                   {(["dashboard", "tasks", "calendar", "goals"] as TabType[]).map((tab) => (
                     <button
                       key={tab}
@@ -371,9 +372,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                         if (onNavigate) onNavigate(tab);
                         onClose();
                       }}
-                      className="p-2.5 rounded-xl bg-foreground/5 hover:bg-foreground/10 text-xs font-medium text-foreground/80 hover:text-foreground text-center capitalize border border-border transition-colors"
+                      className="px-4 py-2 border border-white/10 hover:border-foreground/30 hover:bg-white/[0.02] text-[10px] font-mono uppercase tracking-widest text-foreground/70 hover:text-foreground transition-colors"
                     >
-                      Go to {tab}
+                      {tab}
                     </button>
                   ))}
                 </div>
