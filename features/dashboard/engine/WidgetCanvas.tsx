@@ -10,6 +10,7 @@ import {
   Sparkles
 } from "lucide-react";
 import clsx from "clsx";
+import gsap from "gsap";
 import { WidgetContainer } from "./WidgetContainer";
 import { WidgetCatalogModal, WIDGET_CATALOG } from "./WidgetCatalogModal";
 
@@ -56,6 +57,30 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [liveHeartbeat, setLiveHeartbeat] = useState<any>(null);
+  
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !widgets.length) return;
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        ".gsap-canvas-title",
+        { y: 30, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" }
+      );
+      gsap.fromTo(
+        ".gsap-canvas-widget",
+        { y: 40, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.6, stagger: 0.05, ease: "power2.out" }
+      );
+    }, containerRef);
+    return () => ctx.revert();
+  }, [mounted, widgets.length > 0]);
 
   // Fetch initial layouts and connect SSE
   useEffect(() => {
@@ -376,14 +401,14 @@ export const WidgetCanvas: React.FC<WidgetCanvasProps> = ({ onNavigate, onOpenCo
   }
 
   return (
-    <div className="w-full space-y-8 relative z-10 pb-20 p-4 sm:p-8">
+    <div ref={containerRef} className="w-full space-y-8 relative z-10 pb-20 p-4 sm:p-8">
       {/* Top Workspace Bar / Editorial Hero */}
       <div className="flex flex-col xl:flex-row items-start justify-between gap-8 pb-12 pt-8">
         <div className="max-w-3xl w-full">
           <div className="text-[10px] font-mono uppercase tracking-widest text-foreground/50 mb-6 break-words">
             EXECUTIVE DASHBOARD // {dashboardData?.user?.name || "SYSTEM"}
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-normal text-foreground leading-[1.1] tracking-tight mb-8">
+          <h1 className="gsap-canvas-title text-3xl sm:text-4xl lg:text-5xl font-normal text-foreground leading-[1.1] tracking-tight mb-8">
             {dashboardData?.stats?.activeTasks && dashboardData.stats.activeTasks > 0 ? (
               <>
                 you have <span className="text-foreground/60 italic">{dashboardData.stats.activeTasks}</span> active tasks<br className="hidden sm:block" />

@@ -14,28 +14,47 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartFree, onWatchDe
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const ctx = gsap.context(() => {
-      // Intro sequence
-      gsap.fromTo(
-        ".hero-text",
-        { y: 60, opacity: 0, rotationX: 15 },
-        { y: 0, opacity: 1, rotationX: 0, duration: 1.2, stagger: 0.1, ease: "power4.out" }
-      );
-      
-      gsap.fromTo(
-        ".hero-shader",
-        { opacity: 0, scale: 0.95, filter: "blur(10px)" },
-        { opacity: 1, scale: 1, filter: "blur(0px)", duration: 1.5, delay: 0.3, ease: "power3.out" }
-      );
+    let ctx: gsap.Context;
 
-      gsap.fromTo(
-        ".hero-bottom",
-        { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, duration: 1, delay: 0.5, ease: "power3.out" }
-      );
-    }, containerRef);
+    const playAnimation = () => {
+      ctx = gsap.context(() => {
+        // Intro sequence
+        gsap.fromTo(
+          ".hero-text",
+          { y: 60, opacity: 0, rotationX: 15 },
+          { y: 0, opacity: 1, rotationX: 0, duration: 1.2, stagger: 0.1, ease: "power4.out" }
+        );
+        
+        gsap.fromTo(
+          ".hero-shader",
+          { opacity: 0, scale: 0.95, filter: "blur(10px)" },
+          { opacity: 1, scale: 1, filter: "blur(0px)", duration: 1.5, delay: 0.3, ease: "power3.out" }
+        );
 
-    return () => ctx.revert();
+        gsap.fromTo(
+          ".hero-bottom",
+          { opacity: 0, y: 30 },
+          { opacity: 1, y: 0, duration: 1, delay: 0.5, ease: "power3.out" }
+        );
+      }, containerRef);
+    };
+
+    if (typeof window !== "undefined") {
+      if (sessionStorage.getItem("global-loader-finished")) {
+        playAnimation();
+      } else {
+        const handler = () => playAnimation();
+        window.addEventListener("app-loaded", handler);
+        return () => {
+          window.removeEventListener("app-loaded", handler);
+          if (ctx) ctx.revert();
+        };
+      }
+    }
+
+    return () => {
+      if (ctx) ctx.revert();
+    };
   }, []);
 
   return (

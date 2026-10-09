@@ -28,7 +28,13 @@ export function GlobalLoader() {
         animationFrameId = requestAnimationFrame(animate);
       } else {
         // Complete
-        setTimeout(() => setIsLoading(false), 200); // brief hold at 99
+        setTimeout(() => {
+          setIsLoading(false);
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("global-loader-finished", "true");
+            window.dispatchEvent(new Event("app-loaded"));
+          }
+        }, 200); // brief hold at 99
       }
     };
     
