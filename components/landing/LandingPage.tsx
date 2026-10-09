@@ -113,7 +113,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans relative selection:bg-foreground selection:text-background">
+    <div className="min-h-[100dvh] bg-background text-foreground font-sans relative selection:bg-foreground selection:text-background">
       
       {/* 1. Dynamic Editorial Navigation */}
       <header className="fixed top-0 left-0 right-0 z-[101] bg-background/90 backdrop-blur-md border-b border-border">

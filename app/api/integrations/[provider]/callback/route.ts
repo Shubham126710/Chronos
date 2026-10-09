@@ -53,7 +53,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ provider
       client_secret: process.env[config.clientSecretEnv] || "",
     });
 
-    let headers: Record<string, string> = {
+    const headers: Record<string, string> = {
       "Content-Type": "application/x-www-form-urlencoded",
     };
 

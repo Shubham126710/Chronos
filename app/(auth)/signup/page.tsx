@@ -41,7 +41,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#0B0910] text-foreground overflow-hidden selection:bg-foreground selection:text-[#0B0910]">
+    <div className="min-h-[100dvh] flex bg-[#0B0910] text-foreground overflow-hidden selection:bg-foreground selection:text-[#0B0910]">
       {/* Left Typography Canvas */}
       <div className="hidden lg:flex flex-1 relative flex-col justify-between p-16 border-r border-border/50 bg-[#0B0910]">
         
@@ -82,7 +82,7 @@ export default function SignupPage() {
       </div>
 
       {/* Right Signup Form */}
-      <div className="w-full lg:w-[35%] flex flex-col justify-center px-8 sm:px-16 xl:px-20 z-10 bg-[#0B0910] h-screen overflow-y-auto custom-scrollbar">
+      <div className="w-full lg:w-[35%] flex flex-col justify-center px-8 sm:px-16 xl:px-20 z-10 bg-[#0B0910] h-[100dvh] overflow-y-auto custom-scrollbar">
         <div className="w-full max-w-sm mx-auto py-12">
           
           {/* Back to Home Button */}

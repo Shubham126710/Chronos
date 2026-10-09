@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     const dateParam = searchParams.get("date");
     const viewParam = searchParams.get("view"); // "day", "week", "month", "all"
 
-    let whereClause: any = { userId };
+    const whereClause: any = { userId };
 
     if (dateParam && viewParam === "day") {
       const start = new Date(dateParam);

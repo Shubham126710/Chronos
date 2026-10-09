@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen bg-[#070707] flex flex-col items-center justify-center text-foreground relative overflow-hidden font-mono p-4">
+    <div className="min-h-[100dvh] bg-[#070707] flex flex-col items-center justify-center text-foreground relative overflow-hidden font-mono p-4">
       {/* Background Grid & Glow */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-foreground/5 rounded-full blur-[120px] pointer-events-none" />

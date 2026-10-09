@@ -111,7 +111,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col gap-6 items-center justify-center bg-background">
+      <div className="min-h-[100dvh] flex flex-col gap-6 items-center justify-center bg-background">
         <ThinkingOrb state="working" size={64} theme="dark" />
         <span className="text-sm font-mono tracking-widest uppercase text-foreground/50 animate-pulse">Initializing System...</span>
       </div>
@@ -123,7 +123,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const currentTab = (segments[2] as TabType) || "dashboard";
 
   return (
-    <div ref={layoutRef} className="h-screen w-full flex bg-background overflow-hidden text-foreground selection:bg-foreground selection:text-background font-sans relative">
+    <div ref={layoutRef} className="h-[100dvh] w-full flex bg-background overflow-hidden text-foreground selection:bg-foreground selection:text-background font-sans relative">
       {/* Sidebar - Premium Black */}
       {isMobileNavOpen && (
         <div 

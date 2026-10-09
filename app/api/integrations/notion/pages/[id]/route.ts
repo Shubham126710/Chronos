@@ -43,9 +43,9 @@ function blocksToMarkdown(blocks: any[]): string {
 function markdownToBlocks(md: string): any[] {
   const blocks: any[] = [];
   const lines = md.split("\n");
-  let currentList = false;
+  const currentList = false;
 
-  for (let line of lines) {
+  for (const line of lines) {
     if (line.trim() === "") continue;
 
     if (line.startsWith("# ")) {

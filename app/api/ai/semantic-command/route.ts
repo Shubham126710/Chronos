@@ -411,12 +411,12 @@ export async function POST(req: Request) {
       })
     };
 
-    let messages: any[] = [{ role: "user", content: query }];
+    const messages: any[] = [{ role: "user", content: query }];
     let aiResponseData = null;
     let lastError: any = null;
     let result: any = null;
 
-    console.log("SENDING MESSAGES TO AI:", JSON.stringify(messages, null, 2));
+
 
     for (const model of availableModels) {
       try {
