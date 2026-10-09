@@ -14,9 +14,11 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - icon.svg (svg favicon)
+     * - images (static images)
      * - auth (authentication pages like login)
      * - / (landing page)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|auth|$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|icon.svg|images|auth|$).*)",
   ],
 };

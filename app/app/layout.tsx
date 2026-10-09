@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { Sidebar, TabType } from "../../components/layout/Sidebar";
 import { TopNav } from "../../components/layout/TopNav";
 import { CommandPalette } from "../../components/layout/CommandPalette";
 import { OnboardingFlow } from "../../features/onboarding/OnboardingFlow";
 import { ContextualTour } from "../../features/onboarding/ContextualTour";
+import { ThinkingOrb } from "@/components/ui/thinking-orbs";
+import gsap from "gsap";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
@@ -16,6 +17,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const layoutRef = useRef<HTMLDivElement>(null);
   
   // Onboarding State
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(true);
@@ -54,6 +56,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [status, router]);
 
+  const isLoading = !mounted || status === "loading" || status === "unauthenticated" || isCheckingOnboarding;
+
+  useEffect(() => {
+    if (!isLoading && layoutRef.current) {
+      const ctx = gsap.context(() => {
+        gsap.fromTo(
+          ".gsap-sidebar",
+          { x: -50, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.8, ease: "power3.out" }
+        );
+        gsap.fromTo(
+          ".gsap-topnav",
+          { y: -30, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.8, ease: "power3.out", delay: 0.1 }
+        );
+        gsap.fromTo(
+          ".gsap-content",
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.8, ease: "power3.out", delay: 0.2 }
+        );
+      }, layoutRef);
+
+      return () => ctx.revert();
+    }
+  }, [isLoading]);
+
   const completeOnboarding = async (primaryGoal?: string) => {
     setNeedsOnboarding(false);
     setShowTour(true);
@@ -81,10 +109,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (!mounted || status === "loading" || status === "unauthenticated" || isCheckingOnboarding) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0B0910]">
-        <Loader2 className="w-8 h-8 text-white/50 animate-spin" />
+      <div className="min-h-screen flex flex-col gap-6 items-center justify-center bg-background">
+        <ThinkingOrb state="working" size={64} theme="dark" />
+        <span className="text-sm font-mono tracking-widest uppercase text-foreground/50 animate-pulse">Initializing System...</span>
       </div>
     );
   }
@@ -94,7 +123,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const currentTab = (segments[2] as TabType) || "dashboard";
 
   return (
-    <div className="h-screen w-full flex bg-background overflow-hidden text-foreground selection:bg-foreground selection:text-background font-sans relative">
+    <div ref={layoutRef} className="h-screen w-full flex bg-background overflow-hidden text-foreground selection:bg-foreground selection:text-background font-sans relative">
       {/* Sidebar - Premium Black */}
       {isMobileNavOpen && (
         <div 
@@ -104,7 +133,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
       <div 
         id="chronos-sidebar" 
-        className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:relative lg:translate-x-0 ${isMobileNavOpen ? "translate-x-0" : "-translate-x-full"} flex shrink-0 h-full border-r border-border`}
+        className={`gsap-sidebar fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:relative lg:translate-x-0 ${isMobileNavOpen ? "translate-x-0" : "-translate-x-full"} flex shrink-0 h-full border-r border-border`}
       >
         <Sidebar 
           activeTab={currentTab} 
@@ -123,13 +152,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <main className="flex-1 min-w-0 flex flex-col relative overflow-hidden">
-        <TopNav 
-          activeTab={currentTab}
-          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-          onToggleMobileMenu={() => setIsMobileNavOpen(!isMobileNavOpen)}
-        />
+        <div className="gsap-topnav">
+          <TopNav 
+            activeTab={currentTab}
+            onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+            onToggleMobileMenu={() => setIsMobileNavOpen(!isMobileNavOpen)}
+          />
+        </div>
         
-        <div id="dashboard-canvas" className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+        <div id="dashboard-canvas" className="gsap-content flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           {children}
         </div>
       </main>

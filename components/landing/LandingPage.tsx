@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import gsap from "gsap";
+import ScrollTrigger from "gsap/ScrollTrigger";
 import { 
   ArrowRight, Brain, Calendar, Target, Activity, FileText, 
   CheckCircle2, Clock, Layers, Menu, X
@@ -60,6 +62,55 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
 
     return () => observer.disconnect();
   }, [sections]);
+
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+
+    // Premium reveal for sections
+    const reveals = gsap.utils.toArray('.gsap-reveal');
+    reveals.forEach((el: any) => {
+      gsap.fromTo(
+        el,
+        { opacity: 0, y: 50 },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 1.2,
+          ease: "power3.out",
+          scrollTrigger: {
+            trigger: el,
+            start: "top 85%",
+            toggleActions: "play none none reverse",
+          }
+        }
+      );
+    });
+
+    // Sub-elements stagger
+    const staggerGroups = gsap.utils.toArray('.gsap-stagger-group');
+    staggerGroups.forEach((group: any) => {
+      gsap.fromTo(
+        group.children,
+        { opacity: 0, y: 30 },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 1,
+          stagger: 0.15,
+          ease: "power3.out",
+          scrollTrigger: {
+            trigger: group,
+            start: "top 85%",
+            toggleActions: "play none none reverse",
+          }
+        }
+      );
+    });
+
+    return () => {
+      ScrollTrigger.getAll().forEach(t => t.kill());
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans relative selection:bg-foreground selection:text-background">
@@ -202,7 +253,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
       {/* 02 — HOW CHRONOS WORKS */}
       <section id="how-it-works" className="py-32 px-4 sm:px-8 lg:px-12 border-b border-border">
         <div className="max-w-[90vw] mx-auto w-full relative">
-          <div className="flex flex-col md:flex-row justify-between items-start mb-16 gap-8">
+          <div className="flex flex-col md:flex-row justify-between items-start mb-16 gap-8 gsap-reveal">
             <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/50">
               [ 02 ] HOW CHRONOS WORKS
             </span>
@@ -212,7 +263,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-border">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-border gsap-stagger-group">
             {/* Block 1 */}
             <div className="p-8 sm:p-12 border-b md:border-b-0 md:border-r border-border hover:bg-surface-hover transition-colors">
               <div className="text-[10px] font-mono uppercase tracking-widest mb-8 text-foreground/50">01 / INPUT</div>
@@ -282,7 +333,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
       {/* 04 — MODULES (Bento) */}
       <section id="features" className="py-32 px-4 sm:px-8 lg:px-12 border-b border-border">
         <div className="max-w-[90vw] mx-auto w-full relative">
-          <div className="flex flex-col md:flex-row justify-between items-start mb-16 gap-8">
+          <div className="flex flex-col md:flex-row justify-between items-start mb-16 gap-8 gsap-reveal">
             <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/50">
               [ 04 ] MODULAR ARCHITECTURE
             </span>

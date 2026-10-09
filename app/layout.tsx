@@ -20,6 +20,8 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
+import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvider";
+
 export const metadata: Metadata = {
   title: "Chronos — AI Operating System for Life",
   description: "An AI operating system that plans your day, organizes your goals, adapts to your schedule, and helps you focus on what matters.",
@@ -47,10 +49,12 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <QueryProvider>
-          <AuthProvider>
-            <GlobalLoader />
-            {children}
-          </AuthProvider>
+          <SmoothScrollProvider>
+            <AuthProvider>
+              <GlobalLoader />
+              {children}
+            </AuthProvider>
+          </SmoothScrollProvider>
         </QueryProvider>
       </body>
     </html>
