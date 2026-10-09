@@ -422,7 +422,6 @@ export const DitherShader: React.FC<DitherShaderProps> = ({
     } else {
       // Load the image
       const img = new Image();
-      img.crossOrigin = "anonymous";
       img.src = src;
 
       img.onload = () => {

@@ -24,6 +24,11 @@ export const metadata: Metadata = {
   title: "Chronos — AI Operating System for Life",
   description: "An AI operating system that plans your day, organizes your goals, adapts to your schedule, and helps you focus on what matters.",
   keywords: ["Chronos", "AI Operating System", "Productivity", "Time Blocking", "Goals", "Habits", "Smart Assistant"],
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' }
+    ]
+  }
 };
 
 export default function RootLayout({
