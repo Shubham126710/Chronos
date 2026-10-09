@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, Clock } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 export default function NotFound() {
   return (
@@ -24,8 +24,24 @@ export default function NotFound() {
           transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
           className="mb-8"
         >
-          <div className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.05)]">
-            <Clock className="w-10 h-10 text-foreground/80 animate-pulse" />
+          <div className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.05)] overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none" />
+            <div className="flex gap-1.5 items-center justify-center">
+              {[...Array(4)].map((_, i) => (
+                <motion.div 
+                  key={i} 
+                  className="w-2.5 h-8 bg-foreground/90 rounded-full"
+                  initial={{ height: 12, opacity: 0 }}
+                  animate={{ height: [12, 32, 12], opacity: 1 }}
+                  transition={{ 
+                    duration: 2, 
+                    repeat: Infinity, 
+                    delay: i * 0.15,
+                    ease: "easeInOut"
+                  }}
+                />
+              ))}
+            </div>
           </div>
         </motion.div>
 
