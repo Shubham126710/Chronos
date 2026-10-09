@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import React, { useEffect, useRef } from "react";
 import { ArrowRight, Play } from "lucide-react";
