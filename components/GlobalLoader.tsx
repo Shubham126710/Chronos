@@ -8,6 +8,10 @@ export function GlobalLoader() {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).__GLOBAL_LOADER_FINISHED) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setProgress(0);
 
@@ -31,7 +35,7 @@ export function GlobalLoader() {
         setTimeout(() => {
           setIsLoading(false);
           if (typeof window !== "undefined") {
-            sessionStorage.setItem("global-loader-finished", "true");
+            (window as any).__GLOBAL_LOADER_FINISHED = true;
             window.dispatchEvent(new Event("app-loaded"));
           }
         }, 200); // brief hold at 99

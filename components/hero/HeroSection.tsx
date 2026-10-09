@@ -41,7 +41,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartFree, onWatchDe
     };
 
     if (typeof window !== "undefined") {
-      if (sessionStorage.getItem("global-loader-finished")) {
+      if ((window as any).__GLOBAL_LOADER_FINISHED) {
         playAnimation();
       } else {
         const handler = () => playAnimation();
