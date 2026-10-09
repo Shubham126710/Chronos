@@ -172,6 +172,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       const data = await res.json();
       
       if (data.success) {
+        // Force the app to re-fetch data so the newly created tasks/goals appear immediately
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+        
         setActiveResponse({
           title: "Execution Successful",
           summary: "I have successfully applied these changes to your system.",
