@@ -103,15 +103,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onStartFree, onWatchDe
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </button>
 
-              <button
-                onClick={onWatchDemo}
+              <Link
+                href="/docs"
                 className="group flex items-center justify-between gap-6 px-6 py-4 bg-background text-foreground hover:bg-surface-hover transition-colors font-medium text-sm sm:text-base border border-border cursor-pointer"
               >
                 <span className="flex items-center gap-2">
                   <Play className="w-3.5 h-3.5" />
                   documentation
                 </span>
-              </button>
+              </Link>
             </div>
           </div>
 

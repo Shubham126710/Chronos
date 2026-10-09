@@ -159,7 +159,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
           </div>
 
           <div className="flex items-center gap-4 shrink-0 text-xs font-mono lowercase">
-            <span className="text-foreground/50 hidden md:inline-block">[ documentation ]</span>
+            <Link href="/docs" className="text-foreground/50 hidden md:inline-block hover:text-foreground transition-colors">[ documentation ]</Link>
             <button 
               onClick={onEnterApp}
               className="hover:text-foreground/70 transition-colors hidden sm:block"
@@ -211,9 +211,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp }) => {
                 <button onClick={onEnterApp} className="text-xl font-medium hover:text-foreground/60 text-left">
                   Sign up / Log in
                 </button>
-                <a href="#" className="text-xl font-medium hover:text-foreground/60 text-foreground/70">
+                <Link href="/docs" className="text-xl font-medium hover:text-foreground/60 text-foreground/70">
                   Documentation
-                </a>
+                </Link>
               </div>
             </nav>
           </div>
