@@ -105,7 +105,22 @@ export async function POST(req: Request) {
 
         // 1. CREATE_TASK
         if (op.type === "CREATE_TASK") {
-          const title = payload.title || "Untitled Task";
+          let title = (payload.title || "Untitled Task").trim();
+
+          // Extract due date if embedded in title
+          let dueDate = parseDateSafe(payload.dueDate);
+          if (!dueDate) {
+            const dueMatch = title.match(/due:\s*([0-9T:\-\.]+)/i);
+            if (dueMatch) dueDate = parseDateSafe(dueMatch[1]);
+          }
+
+          // Sanitize title from metadata leakage
+          title = title
+            .replace(/;\s*Due:.*$/i, "")
+            .replace(/;\s*Priority:.*$/i, "")
+            .replace(/;\s*Description:.*$/i, "")
+            .trim();
+          if (title.length > 80) title = title.slice(0, 80).trim();
 
           // Deduplication: check if identical task created in last 5 minutes
           const duplicate = await prisma.task.findFirst({
@@ -127,7 +142,6 @@ export async function POST(req: Request) {
             continue;
           }
 
-          const dueDate = parseDateSafe(payload.dueDate);
           const priority = ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(payload.priority?.toUpperCase())
             ? payload.priority.toUpperCase()
             : "MEDIUM";
@@ -215,9 +229,33 @@ export async function POST(req: Request) {
 
         // 4. CREATE_EVENT
         else if (op.type === "CREATE_EVENT") {
-          const title = payload.title || "Focus Session";
-          const sDate = parseDateSafe(payload.startTime);
-          const eDate = parseDateSafe(payload.endTime);
+          let title = (payload.title || "Focus Session").trim();
+          let sDate = parseDateSafe(payload.startTime);
+          let eDate = parseDateSafe(payload.endTime);
+
+          // Defensive: if start/end times missing, attempt regex extraction from title
+          if (!sDate) {
+            const startMatch = title.match(/start:\s*([0-9T:\-\.]+)/i);
+            if (startMatch) sDate = parseDateSafe(startMatch[1]);
+          }
+          if (!eDate) {
+            const endMatch = title.match(/end:\s*([0-9T:\-\.]+)/i);
+            if (endMatch) eDate = parseDateSafe(endMatch[1]);
+          }
+
+          // If start is valid but end is missing or backwards, default to start + 1 hour
+          if (sDate && (!eDate || eDate <= sDate)) {
+            eDate = new Date(sDate.getTime() + 60 * 60 * 1000);
+          }
+
+          // Sanitize title from metadata leakage
+          title = title
+            .replace(/;\s*Start:.*$/i, "")
+            .replace(/;\s*End:.*$/i, "")
+            .replace(/;\s*Description:.*$/i, "")
+            .replace(/;\s*Category:.*$/i, "")
+            .trim();
+          if (title.length > 80) title = title.slice(0, 80).trim();
 
           if (!sDate || !eDate) {
             results.push({
@@ -357,7 +395,9 @@ export async function POST(req: Request) {
 
         // 7. CREATE_GOAL
         else if (op.type === "CREATE_GOAL") {
-          const title = payload.title || "New Goal";
+          let title = (payload.title || "New Goal").trim();
+          title = title.replace(/(Period Goal\s*)+/gi, "").trim() || "New Goal";
+          if (title.length > 80) title = title.slice(0, 80).trim();
 
           const duplicate = await prisma.goal.findFirst({
             where: {
@@ -404,7 +444,14 @@ export async function POST(req: Request) {
 
         // 8. CREATE_HABIT
         else if (op.type === "CREATE_HABIT") {
-          const title = payload.title || "New Habit";
+          let title = (payload.title || "New Habit").trim();
+          title = title
+            .replace(/;\s*Target:.*$/i, "")
+            .replace(/;\s*Category:.*$/i, "")
+            .replace(/;\s*Goal:.*$/i, "")
+            .replace(/<br>/gi, " ")
+            .trim();
+          if (title.length > 80) title = title.slice(0, 80).trim();
 
           const duplicate = await prisma.habit.findFirst({
             where: {

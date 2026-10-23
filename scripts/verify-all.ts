@@ -22,10 +22,10 @@ async function main() {
   // --------------------------------------------------------------------------
   console.log("--- TEST 1: AI Model Execution & Structured Output ---");
   const testSchema = z.object({
-    title: z.string(),
-    summary: z.string(),
-    actionLabel: z.string(),
-    details: z.array(z.string()),
+    title: z.string().max(80),
+    summary: z.string().max(250),
+    actionLabel: z.string().max(30),
+    details: z.array(z.string().max(150)),
     operations: z.array(z.object({
       type: z.enum([
         "CREATE_TASK", "UPDATE_TASK", "DELETE_TASK",
@@ -34,16 +34,17 @@ async function main() {
         "CREATE_HABIT", "LOG_HABIT",
         "CREATE_NOTION_PAGE"
       ]),
-      title: z.string().optional(),
+      title: z.string().max(80).optional(),
       startTime: z.string().optional(),
       endTime: z.string().optional(),
       priority: z.string().optional(),
+      targetDays: z.number().optional()
     }))
   });
 
   const aiStart = Date.now();
   const aiResult = await executeStructuredWithFallback({
-    system: "You are the Chronos AI Executive. Current time: " + new Date().toISOString() + ". Propose operations.",
+    system: "You are the Chronos AI Executive. Current time: " + new Date().toISOString() + ". When asked to schedule a session, propose a CREATE_EVENT operation with valid ISO 8601 startTime and endTime.",
     prompt: "Schedule two hours of Operating Systems revision tomorrow at 10 AM",
     schema: testSchema
   });

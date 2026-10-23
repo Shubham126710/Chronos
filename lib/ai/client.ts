@@ -22,7 +22,10 @@ export function getAvailableLanguageModels() {
     const primaryId = process.env.GEMINI_MODEL || "gemini-3.5-flash";
     models.push({ providerName: "gemini", model: google(primaryId), modelId: primaryId });
 
-    // Include lightweight fallback models
+    // Include lightweight fallback models with independent quotas
+    if (primaryId !== "gemini-3.5-flash-lite") {
+      models.push({ providerName: "gemini-fallback", model: google("gemini-3.5-flash-lite"), modelId: "gemini-3.5-flash-lite" });
+    }
     if (primaryId !== "gemini-3.1-flash-lite") {
       models.push({ providerName: "gemini-fallback", model: google("gemini-3.1-flash-lite"), modelId: "gemini-3.1-flash-lite" });
     }
@@ -102,13 +105,20 @@ export async function executeStructuredWithFallback<T>({
       } catch (err: any) {
         lastError = err;
         const errMsg = err?.message || String(err);
-        const isRateLimit = errMsg.includes("429") || err?.status === 429;
+        const isDailyQuotaExceeded = errMsg.includes("per day limit") || errMsg.includes("limit exceeded on Free Tier") || errMsg.includes("Please retry in");
+        const isRateLimit = (errMsg.includes("429") || err?.status === 429) && !isDailyQuotaExceeded;
         const isTemporary = errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand");
+
+        // If daily free-tier quota is exhausted on this specific model, break immediately to next model
+        if (isDailyQuotaExceeded) {
+          console.warn(`[AI Client] Model ${modelId} daily quota reached. Instantly routing to fallback.`);
+          break;
+        }
 
         if ((isRateLimit || isTemporary) && attempts < maxRetries) {
           attempts++;
-          // Exponential backoff with jitter: 800ms, 1600ms...
-          const delay = Math.pow(2, attempts) * 400 + Math.random() * 200;
+          // Exponential backoff with jitter: 600ms, 1200ms...
+          const delay = Math.pow(2, attempts) * 300 + Math.random() * 150;
           await new Promise((resolve) => setTimeout(resolve, delay));
           continue;
         }

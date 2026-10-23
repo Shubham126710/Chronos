@@ -5,33 +5,36 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../../lib/auth";
 import { executeStructuredWithFallback } from "../../../../lib/ai/client";
 
+// Structured Schema for the AI Command Operations
+const OperationSchema = z.object({
+  type: z.enum([
+    "CREATE_TASK", "UPDATE_TASK", "DELETE_TASK",
+    "CREATE_EVENT", "UPDATE_EVENT", "DELETE_EVENT",
+    "CREATE_GOAL", "UPDATE_GOAL", "DELETE_GOAL",
+    "CREATE_HABIT", "LOG_HABIT",
+    "CREATE_NOTION_PAGE"
+  ]),
+  title: z.string().max(80).describe("Concise title under 80 characters. Never put timestamps, tags, or dates in title."),
+  description: z.string().max(250).optional().describe("Description or notes"),
+  startTime: z.string().optional().describe("ISO 8601 start time for events (e.g. 2026-10-25T09:00:00.000Z)"),
+  endTime: z.string().optional().describe("ISO 8601 end time for events (e.g. 2026-10-25T11:00:00.000Z)"),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional().describe("Priority for tasks"),
+  estimatedMinutes: z.number().optional().describe("Estimated minutes for tasks"),
+  dueDate: z.string().optional().describe("ISO 8601 string for task due date"),
+  category: z.string().optional().describe("Category for habit or event"),
+  targetDays: z.number().optional().describe("Target days per week for habit"),
+  content: z.string().max(2000).optional().describe("Markdown content for Notion page"),
+  parentId: z.string().optional().describe("Parent goal ID for milestones"),
+  id: z.string().optional().describe("Entity ID for update or delete operations")
+});
+
 // Structured Schema for the AI Command Response
 const AICommandResponseSchema = z.object({
-  title: z.string().describe("A concise 3-6 word title of the action proposed."),
-  summary: z.string().describe("1-2 sentences summarizing the analysis and plan."),
-  actionLabel: z.string().describe("Button label (e.g. 'Apply Plan', 'Schedule Sessions', 'Create Habit')."),
-  details: z.array(z.string()).describe("3-4 bullet points explaining the actions, schedule, or strategy."),
-  operations: z.array(z.object({
-    type: z.enum([
-      "CREATE_TASK", "UPDATE_TASK", "DELETE_TASK",
-      "CREATE_EVENT", "UPDATE_EVENT", "DELETE_EVENT",
-      "CREATE_GOAL", "UPDATE_GOAL", "DELETE_GOAL",
-      "CREATE_HABIT", "LOG_HABIT",
-      "CREATE_NOTION_PAGE"
-    ]),
-    title: z.string().optional().describe("Title for task, event, habit, or goal"),
-    description: z.string().optional().describe("Description or notes"),
-    startTime: z.string().optional().describe("ISO 8601 string for calendar events"),
-    endTime: z.string().optional().describe("ISO 8601 string for calendar events"),
-    priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional().describe("Priority for tasks"),
-    estimatedMinutes: z.number().optional().describe("Estimated minutes for tasks"),
-    dueDate: z.string().optional().describe("ISO 8601 string for task due date"),
-    category: z.string().optional().describe("Category for habit, event, or task"),
-    targetDays: z.number().optional().describe("Target days per week for habit"),
-    content: z.string().optional().describe("Markdown content for Notion page or note"),
-    parentId: z.string().optional().describe("Parent goal ID for milestones"),
-    id: z.string().optional().describe("Entity ID for update or delete operations")
-  })).default([])
+  title: z.string().max(80).describe("A concise 3-6 word title of the action proposed."),
+  summary: z.string().max(250).describe("1-2 sentences summarizing the analysis and plan."),
+  actionLabel: z.string().max(30).describe("Button label (e.g. 'Apply Plan', 'Schedule Sessions', 'Create Habit')."),
+  details: z.array(z.string().max(150)).min(2).max(5).describe("3-4 bullet points explaining the actions, schedule, or strategy."),
+  operations: z.array(OperationSchema).default([])
 });
 
 export async function POST(req: Request) {
@@ -137,19 +140,23 @@ USER STATE:
 
 ORCHESTRATION RULES:
 1. Always translate the user's intent into realistic, structured operations.
-2. For study plans or goals (e.g. "Prepare for GATE", "Study Operating Systems"):
-   - Propose CREATE_GOAL with milestones if it's a major ambition.
-   - Propose CREATE_EVENT operations with realistic ISO 8601 start/end times for dedicated focus sessions.
-   - Propose CREATE_TASK for specific action items.
-3. For habits (e.g. "Create a morning reading habit"):
-   - Propose CREATE_HABIT with targetDays (e.g. 7) and title.
-   - If the user specifies a time (e.g. 9 PM or morning), also schedule a CREATE_EVENT block.
-4. For day planning:
-   - Check existing events to avoid scheduling conflicts.
+2. For multi-part goals or long-term preparation requests (e.g. "Prepare for GATE over 3 months", "Learn Spanish"):
+   - Propose 1 CREATE_GOAL for the overarching goal.
+   - Propose CREATE_HABIT for daily discipline or study routines.
+   - Propose CREATE_EVENT operations for concrete scheduled blocks (daily study sessions, weekly reviews, Sunday mock tests) with explicit ISO 8601 start/end timestamps.
+   - Propose CREATE_TASK for initial deliverables or syllabus mapping.
+3. For habits (e.g. "Create a morning reading habit and remind me every day"):
+   - Propose CREATE_HABIT with targetDays (e.g. 7).
+   - If time is mentioned (e.g. morning, 9 PM), also schedule a CREATE_EVENT block.
+4. For day planning (e.g. "Plan my day around my deadlines and events"):
+   - Review upcoming events to avoid scheduling conflicts.
    - Schedule open work blocks around existing events.
 5. For Notion requests:
    - If Notion is connected (${connectedProviders.includes("notion") ? "YES" : "NO"}), propose CREATE_NOTION_PAGE with title and markdown content.
-6. Provide accurate ISO 8601 timestamps (e.g. "${new Date(Date.now() + 86400000).toISOString().split("T")[0]}T10:00:00.000Z") calculated relative to Current Time.`;
+6. Title & Formatting Cleanliness:
+   - Keep titles clean, human-readable, and under 80 characters.
+   - NEVER put timestamps, semicolons, or metadata tags (such as Start:, Due:, Category:) inside the title string.
+   - All CREATE_EVENT operations MUST include valid ISO 8601 startTime and endTime strings (e.g. "${new Date(Date.now() + 86400000).toISOString().split("T")[0]}T09:00:00.000Z") calculated relative to Current Time.`;
 
     const aiResult = await executeStructuredWithFallback({
       system: systemPrompt,
