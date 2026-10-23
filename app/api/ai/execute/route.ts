@@ -1,84 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { authOptions } from "../../../../lib/auth";
+import {
+  createGoogleCalendarEvent,
+  updateGoogleCalendarEvent,
+  deleteGoogleCalendarEvent
+} from "../../../../lib/integrations/google";
+import { recalculateGoalProgress } from "../../../../lib/goals/progress";
 import { z } from "zod";
-
-const TaskSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  priority: z.string().optional().transform(val => {
-    const v = val?.toUpperCase();
-    return ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(v as string) ? v : "MEDIUM";
-  }),
-  estimatedMinutes: z.coerce.number().optional().default(30),
-  dueDate: z.string().optional(),
-});
-
-const TaskUpdateSchema = z.object({
-  id: z.string(),
-  title: z.string().optional(),
-  priority: z.string().optional().transform(val => {
-    if (!val) return undefined;
-    const v = val.toUpperCase();
-    return ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(v) ? v : undefined;
-  }),
-  isCompleted: z.boolean().optional(),
-  dueDate: z.string().optional(),
-});
-
-const EventSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  startTime: z.string(),
-  endTime: z.string(),
-  category: z.string().optional().default("FOCUS"),
-});
-
-const EventUpdateSchema = z.object({
-  id: z.string(),
-  title: z.string().optional(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-});
-
-const GoalSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  status: z.string().optional().default("ACTIVE"),
-  progress: z.coerce.number().optional().default(0),
-});
-
-const GoalUpdateSchema = z.object({
-  id: z.string(),
-  title: z.string().optional(),
-  status: z.string().optional(),
-  progress: z.coerce.number().optional(),
-});
-
-const HabitSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  category: z.string().optional().default("GENERAL"),
-  targetDays: z.coerce.number().optional().default(7),
-});
-
-const SlackSchema = z.object({
-  channel: z.string().optional().default("#general"),
-  message: z.string().min(1, "Message is required"),
-});
-
-const NotionPageSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  content: z.string().optional(),
-  parentPageId: z.string().min(1, "Parent Page ID is required"),
-});
-
-const EmailReplySchema = z.object({
-  messageId: z.string().min(1, "Message ID is required"),
-  body: z.string().min(1, "Reply body is required"),
-  to: z.string().optional(),
-  subject: z.string().optional(),
-});
 
 function parseDateSafe(dateStr: string | undefined): Date | null {
   if (!dateStr) return null;
@@ -88,39 +18,39 @@ function parseDateSafe(dateStr: string | undefined): Date | null {
 
 function markdownToNotionBlocks(markdown: string) {
   if (!markdown) return [];
-  const lines = markdown.split('\n');
+  const lines = markdown.split("\n");
   const blocks: any[] = [];
-  
+
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    
-    if (trimmed.startsWith('# ')) {
+
+    if (trimmed.startsWith("# ")) {
       blocks.push({
         object: "block", type: "heading_1",
         heading_1: { rich_text: [{ type: "text", text: { content: trimmed.substring(2) } }] }
       });
-    } else if (trimmed.startsWith('## ')) {
+    } else if (trimmed.startsWith("## ")) {
       blocks.push({
         object: "block", type: "heading_2",
         heading_2: { rich_text: [{ type: "text", text: { content: trimmed.substring(3) } }] }
       });
-    } else if (trimmed.startsWith('### ')) {
+    } else if (trimmed.startsWith("### ")) {
       blocks.push({
         object: "block", type: "heading_3",
         heading_3: { rich_text: [{ type: "text", text: { content: trimmed.substring(4) } }] }
       });
-    } else if (trimmed.startsWith('- [ ] ') || trimmed.startsWith('* [ ] ')) {
+    } else if (trimmed.startsWith("- [ ] ") || trimmed.startsWith("* [ ] ")) {
       blocks.push({
         object: "block", type: "to_do",
         to_do: { rich_text: [{ type: "text", text: { content: trimmed.substring(6) } }], checked: false }
       });
-    } else if (trimmed.startsWith('- [x] ') || trimmed.startsWith('* [x] ')) {
+    } else if (trimmed.startsWith("- [x] ") || trimmed.startsWith("* [x] ")) {
       blocks.push({
         object: "block", type: "to_do",
         to_do: { rich_text: [{ type: "text", text: { content: trimmed.substring(6) } }], checked: true }
       });
-    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+    } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       blocks.push({
         object: "block", type: "bulleted_list_item",
         bulleted_list_item: { rich_text: [{ type: "text", text: { content: trimmed.substring(2) } }] }
@@ -128,7 +58,7 @@ function markdownToNotionBlocks(markdown: string) {
     } else if (/^\d+\.\s/.test(trimmed)) {
       blocks.push({
         object: "block", type: "numbered_list_item",
-        numbered_list_item: { rich_text: [{ type: "text", text: { content: trimmed.replace(/^\d+\.\s/, '') } }] }
+        numbered_list_item: { rich_text: [{ type: "text", text: { content: trimmed.replace(/^\d+\.\s/, "") } }] }
       });
     } else {
       blocks.push({
@@ -154,402 +84,541 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Invalid operations payload" }, { status: 400 });
     }
 
-    const results = [];
+    const results: Array<{
+      type: string;
+      title?: string;
+      status: "success" | "error" | "requires_auth";
+      id?: string;
+      message: string;
+      externalSync?: {
+        provider: string;
+        status: "synced" | "failed" | "not_connected";
+        details?: string;
+      };
+    }> = [];
 
-    // Execute operations sequentially to ensure DB consistency
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
     for (const op of operations) {
       try {
+        const payload = op.payload || {};
+
+        // 1. CREATE_TASK
         if (op.type === "CREATE_TASK") {
-          const parsed = TaskSchema.safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
+          const title = payload.title || "Untitled Task";
+
+          // Deduplication: check if identical task created in last 5 minutes
+          const duplicate = await prisma.task.findFirst({
+            where: {
+              userId,
+              title,
+              createdAt: { gte: fiveMinutesAgo }
+            }
+          });
+
+          if (duplicate) {
+            results.push({
+              type: op.type,
+              title,
+              status: "success",
+              id: duplicate.id,
+              message: "Task already exists (deduplicated retry)."
+            });
             continue;
           }
-          const data = parsed.data;
+
+          const dueDate = parseDateSafe(payload.dueDate);
+          const priority = ["LOW", "MEDIUM", "HIGH", "CRITICAL"].includes(payload.priority?.toUpperCase())
+            ? payload.priority.toUpperCase()
+            : "MEDIUM";
+
           const task = await prisma.task.create({
             data: {
               userId,
-              title: data.title,
-              description: data.description || "",
-              priority: data.priority,
-              estimatedMinutes: data.estimatedMinutes,
-              dueDate: parseDateSafe(data.dueDate),
+              title,
+              description: payload.description || "",
+              priority,
+              estimatedMinutes: Number(payload.estimatedMinutes) || 30,
+              dueDate,
+              goalId: payload.goalId || null,
+              projectId: payload.projectId || null,
             }
           });
-          results.push({ type: op.type, status: "success", id: task.id });
-        } 
+
+          if (payload.goalId) {
+            await recalculateGoalProgress(payload.goalId).catch(() => {});
+          }
+
+          results.push({
+            type: op.type,
+            title,
+            status: "success",
+            id: task.id,
+            message: "Task created in Chronos."
+          });
+        }
+
+        // 2. UPDATE_TASK
         else if (op.type === "UPDATE_TASK") {
-          const parsed = TaskUpdateSchema.safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
+          const taskId = payload.id;
+          if (!taskId) {
+            results.push({ type: op.type, status: "error", message: "Task ID required for update" });
             continue;
           }
-          const data = parsed.data;
-          // Verify ownership first
-          const existing = await prisma.task.findUnique({ where: { id: data.id } });
-          if (existing && existing.userId === userId) {
-            const updateData: any = {};
-            if (data.title) updateData.title = data.title;
-            if (data.priority) updateData.priority = data.priority;
-            if (data.isCompleted !== undefined) updateData.isCompleted = data.isCompleted;
-            if (data.dueDate) {
-              const d = parseDateSafe(data.dueDate);
-              if (d) updateData.dueDate = d;
-            }
-            
-            await prisma.task.update({
-              where: { id: data.id },
-              data: updateData
-            });
-            results.push({ type: op.type, status: "success", id: data.id });
-          } else {
+
+          const existing = await prisma.task.findFirst({ where: { id: taskId, userId } });
+          if (!existing) {
             results.push({ type: op.type, status: "error", message: "Task not found or unauthorized" });
+            continue;
           }
+
+          const updateData: any = {};
+          if (payload.title !== undefined) updateData.title = payload.title;
+          if (payload.isCompleted !== undefined) updateData.isCompleted = !!payload.isCompleted;
+          if (payload.priority) updateData.priority = payload.priority.toUpperCase();
+          if (payload.dueDate) updateData.dueDate = parseDateSafe(payload.dueDate);
+
+          await prisma.task.update({ where: { id: taskId }, data: updateData });
+
+          if (existing.goalId) {
+            await recalculateGoalProgress(existing.goalId).catch(() => {});
+          }
+
+          results.push({
+            type: op.type,
+            title: updateData.title || existing.title,
+            status: "success",
+            id: taskId,
+            message: "Task updated."
+          });
         }
+
+        // 3. DELETE_TASK
         else if (op.type === "DELETE_TASK") {
-          const parsed = z.object({ id: z.string() }).safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
+          const taskId = payload.id;
+          if (!taskId) {
+            results.push({ type: op.type, status: "error", message: "Task ID required for deletion" });
             continue;
           }
-          const data = parsed.data;
-          const existing = await prisma.task.findUnique({ where: { id: data.id } });
-          if (existing && existing.userId === userId) {
-            await prisma.task.delete({ where: { id: data.id } });
-            results.push({ type: op.type, status: "success", id: data.id });
+
+          const existing = await prisma.task.findFirst({ where: { id: taskId, userId } });
+          if (existing) {
+            await prisma.task.delete({ where: { id: taskId } });
+            if (existing.goalId) {
+              await recalculateGoalProgress(existing.goalId).catch(() => {});
+            }
+            results.push({ type: op.type, status: "success", id: taskId, message: "Task deleted." });
           } else {
             results.push({ type: op.type, status: "error", message: "Task not found or unauthorized" });
           }
         }
+
+        // 4. CREATE_EVENT
         else if (op.type === "CREATE_EVENT") {
-          const parsed = EventSchema.safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
+          const title = payload.title || "Focus Session";
+          const sDate = parseDateSafe(payload.startTime);
+          const eDate = parseDateSafe(payload.endTime);
+
+          if (!sDate || !eDate) {
+            results.push({
+              type: op.type,
+              title,
+              status: "error",
+              message: "Invalid start or end time format."
+            });
             continue;
           }
-          const data = parsed.data;
-          const sDate = parseDateSafe(data.startTime);
-          const eDate = parseDateSafe(data.endTime);
-          if (!sDate || !eDate) {
-            results.push({ type: op.type, status: "error", message: "Invalid dates provided" });
+
+          // Deduplication: check if same event created within 5 minutes
+          const duplicate = await prisma.calendarEvent.findFirst({
+            where: {
+              userId,
+              title,
+              startTime: sDate,
+              createdAt: { gte: fiveMinutesAgo }
+            }
+          });
+
+          if (duplicate) {
+            results.push({
+              type: op.type,
+              title,
+              status: "success",
+              id: duplicate.id,
+              message: "Event already scheduled (deduplicated retry)."
+            });
             continue;
+          }
+
+          // Synchronize to Google Calendar if connected
+          let googleEventId: string | null = null;
+          let googleSyncStatus: "synced" | "failed" | "not_connected" = "not_connected";
+          let googleDetails: string | undefined = undefined;
+
+          const gResult = await createGoogleCalendarEvent(userId, {
+            summary: title,
+            description: payload.description || "",
+            startTime: sDate,
+            endTime: eDate,
+            colorId: "9"
+          });
+
+          if (gResult.success && gResult.googleEventId) {
+            googleEventId = gResult.googleEventId;
+            googleSyncStatus = "synced";
+            googleDetails = "Event confirmed on Google Calendar.";
+          } else if (gResult.error && gResult.error !== "GOOGLE_NOT_CONNECTED") {
+            googleSyncStatus = "failed";
+            googleDetails = gResult.error;
           }
 
           const event = await prisma.calendarEvent.create({
             data: {
               userId,
-              title: data.title,
-              description: data.description || "",
+              title,
+              description: payload.description || "",
               startTime: sDate,
               endTime: eDate,
-              category: data.category,
+              category: payload.category || "FOCUS",
+              googleEventId,
+              isTimeBlock: true,
+              color: "#7B5CFF"
             }
           });
 
-          // Sync with Google Calendar if connected
-          const googleIntegration = await prisma.integration.findUnique({
-            where: { userId_provider: { userId, provider: "google" } }
-          });
-          if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
-            try {
-              const { google } = require('googleapis');
-              const oauth2Client = new google.auth.OAuth2(
-                process.env.GOOGLE_CLIENT_ID,
-                process.env.GOOGLE_CLIENT_SECRET
-              );
-              oauth2Client.setCredentials({ 
-                access_token: googleIntegration.accessToken,
-                refresh_token: googleIntegration.refreshToken
-              });
-              const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-              await calendar.events.insert({
-                calendarId: 'primary',
-                requestBody: {
-                  summary: data.title,
-                  description: data.description,
-                  start: { dateTime: sDate.toISOString() },
-                  end: { dateTime: eDate.toISOString() },
-                  colorId: '9',
-                }
-              });
-            } catch (err) {
-              console.error("Google Calendar AI sync error:", err);
+          results.push({
+            type: op.type,
+            title,
+            status: "success",
+            id: event.id,
+            message: googleSyncStatus === "synced"
+              ? "Scheduled in Chronos & synced to Google Calendar."
+              : "Scheduled in Chronos Calendar (Google Calendar not connected).",
+            externalSync: {
+              provider: "google",
+              status: googleSyncStatus,
+              details: googleDetails
             }
-          }
-
-          results.push({ type: op.type, status: "success", id: event.id });
+          });
         }
+
+        // 5. UPDATE_EVENT
         else if (op.type === "UPDATE_EVENT") {
-          const parsed = EventUpdateSchema.safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
+          const eventId = payload.id;
+          if (!eventId) {
+            results.push({ type: op.type, status: "error", message: "Event ID required for update" });
             continue;
           }
-          const data = parsed.data;
-          const existing = await prisma.calendarEvent.findUnique({ where: { id: data.id } });
-          if (existing && existing.userId === userId) {
-            const updateData: any = {};
-            if (data.title) updateData.title = data.title;
-            if (data.startTime) {
-              const d = parseDateSafe(data.startTime);
-              if (d) updateData.startTime = d;
-            }
-            if (data.endTime) {
-              const d = parseDateSafe(data.endTime);
-              if (d) updateData.endTime = d;
-            }
-            
-            await prisma.calendarEvent.update({
-              where: { id: data.id },
-              data: updateData
-            });
-            results.push({ type: op.type, status: "success", id: data.id });
-          } else {
+
+          const existing = await prisma.calendarEvent.findFirst({ where: { id: eventId, userId } });
+          if (!existing) {
             results.push({ type: op.type, status: "error", message: "Event not found or unauthorized" });
+            continue;
           }
+
+          const updateData: any = {};
+          if (payload.title !== undefined) updateData.title = payload.title;
+          if (payload.startTime) updateData.startTime = parseDateSafe(payload.startTime);
+          if (payload.endTime) updateData.endTime = parseDateSafe(payload.endTime);
+
+          await prisma.calendarEvent.update({ where: { id: eventId }, data: updateData });
+
+          if (existing.googleEventId) {
+            await updateGoogleCalendarEvent(userId, existing.googleEventId, {
+              summary: updateData.title || existing.title,
+              startTime: updateData.startTime || existing.startTime,
+              endTime: updateData.endTime || existing.endTime,
+            }).catch(() => {});
+          }
+
+          results.push({
+            type: op.type,
+            title: updateData.title || existing.title,
+            status: "success",
+            id: eventId,
+            message: "Calendar event updated."
+          });
         }
+
+        // 6. DELETE_EVENT
         else if (op.type === "DELETE_EVENT") {
-          const parsed = z.object({ id: z.string() }).safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
-            continue;
-          }
-          const data = parsed.data;
-          const existing = await prisma.calendarEvent.findUnique({ where: { id: data.id } });
-          if (existing && existing.userId === userId) {
-            await prisma.calendarEvent.delete({ where: { id: data.id } });
-            results.push({ type: op.type, status: "success", id: data.id });
+          const eventId = payload.id;
+          const existing = await prisma.calendarEvent.findFirst({ where: { id: eventId, userId } });
+          if (existing) {
+            if (existing.googleEventId) {
+              await deleteGoogleCalendarEvent(userId, existing.googleEventId).catch(() => {});
+            }
+            await prisma.calendarEvent.delete({ where: { id: eventId } });
+            results.push({ type: op.type, status: "success", id: eventId, message: "Calendar event removed." });
           } else {
             results.push({ type: op.type, status: "error", message: "Event not found or unauthorized" });
           }
         }
-        else if (op.type === "SEND_SLACK_MESSAGE") {
-          const parsed = SlackSchema.safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
-            continue;
-          }
-          const data = parsed.data;
-          const slackIntegration = await prisma.integration.findUnique({
-            where: { userId_provider: { userId, provider: "slack" } }
-          });
-          if (slackIntegration && slackIntegration.status === "Connected" && slackIntegration.accessToken) {
-            try {
-              const { WebClient } = require('@slack/web-api');
-              const slack = new WebClient(slackIntegration.accessToken);
-              await slack.chat.postMessage({
-                channel: data.channel,
-                text: data.message
-              });
-              results.push({ type: op.type, status: "success", message: "Sent to Slack" });
-            } catch (err) {
-              console.error("Slack postMessage error:", err);
-              results.push({ type: op.type, status: "error", message: "Slack API error" });
-            }
-          } else {
-            results.push({ type: op.type, status: "error", message: "Slack not connected" });
-          }
-        }
-        else if (op.type === "CREATE_NOTION_PAGE") {
-          const parsed = NotionPageSchema.safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
-            continue;
-          }
-          const data = parsed.data;
-          const notionIntegration = await prisma.integration.findUnique({
-            where: { userId_provider: { userId, provider: "notion" } }
-          });
-          if (notionIntegration && notionIntegration.status === "Connected" && notionIntegration.accessToken) {
-            try {
-              const response = await fetch("https://api.notion.com/v1/pages", {
-                method: "POST",
-                headers: {
-                  "Authorization": `Bearer ${notionIntegration.accessToken}`,
-                  "Notion-Version": "2022-06-28",
-                  "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                  parent: { page_id: data.parentPageId },
-                  properties: {
-                    title: {
-                      title: [{ text: { content: data.title } }]
-                    }
-                  },
-                  children: markdownToNotionBlocks(data.content || "")
-                })
-              });
-              if (!response.ok) {
-                const errData = await response.text();
-                console.error("Notion API error:", errData);
-                results.push({ type: op.type, status: "error", message: "Notion API error" });
-              } else {
-                const resData = await response.json();
-                results.push({ type: op.type, status: "success", id: resData.id });
-              }
-            } catch (err) {
-              console.error("Notion page creation error:", err);
-              results.push({ type: op.type, status: "error", message: "Notion network error" });
-            }
-          } else {
-            results.push({ type: op.type, status: "error", message: "Notion not connected" });
-          }
-        }
+
+        // 7. CREATE_GOAL
         else if (op.type === "CREATE_GOAL") {
-          const parsed = GoalSchema.safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
+          const title = payload.title || "New Goal";
+
+          const duplicate = await prisma.goal.findFirst({
+            where: {
+              userId,
+              title,
+              createdAt: { gte: fiveMinutesAgo }
+            }
+          });
+
+          if (duplicate) {
+            results.push({
+              type: op.type,
+              title,
+              status: "success",
+              id: duplicate.id,
+              message: "Goal already exists (deduplicated retry)."
+            });
             continue;
           }
-          const data = parsed.data;
+
           const goal = await prisma.goal.create({
             data: {
               userId,
-              title: data.title,
-              description: data.description || "",
-              status: data.status,
-              progress: data.progress,
+              title,
+              description: payload.description || "",
+              status: "ACTIVE",
+              progress: 0,
+              parentId: payload.parentId || null,
             }
           });
-          results.push({ type: op.type, status: "success", id: goal.id });
+
+          if (payload.parentId) {
+            await recalculateGoalProgress(payload.parentId).catch(() => {});
+          }
+
+          results.push({
+            type: op.type,
+            title,
+            status: "success",
+            id: goal.id,
+            message: payload.parentId ? "Milestone linked to goal." : "Root goal established in Ambition Engine."
+          });
         }
-        else if (op.type === "UPDATE_GOAL") {
-          const parsed = GoalUpdateSchema.safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
-            continue;
-          }
-          const data = parsed.data;
-          const existing = await prisma.goal.findUnique({ where: { id: data.id } });
-          if (existing && existing.userId === userId) {
-            const updateData: any = {};
-            if (data.title) updateData.title = data.title;
-            if (data.progress !== undefined) updateData.progress = data.progress;
-            if (data.status) updateData.status = data.status;
-            
-            await prisma.goal.update({ where: { id: data.id }, data: updateData });
-            results.push({ type: op.type, status: "success", id: data.id });
-          } else {
-            results.push({ type: op.type, status: "error", message: "Goal not found or unauthorized" });
-          }
-        }
-        else if (op.type === "DELETE_GOAL") {
-          const parsed = z.object({ id: z.string() }).safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
-            continue;
-          }
-          const data = parsed.data;
-          const existing = await prisma.goal.findUnique({ where: { id: data.id } });
-          if (existing && existing.userId === userId) {
-            await prisma.goal.delete({ where: { id: data.id } });
-            results.push({ type: op.type, status: "success", id: data.id });
-          } else {
-            results.push({ type: op.type, status: "error", message: "Goal not found or unauthorized" });
-          }
-        }
+
+        // 8. CREATE_HABIT
         else if (op.type === "CREATE_HABIT") {
-          const parsed = HabitSchema.safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
+          const title = payload.title || "New Habit";
+
+          const duplicate = await prisma.habit.findFirst({
+            where: {
+              userId,
+              title,
+              createdAt: { gte: fiveMinutesAgo }
+            }
+          });
+
+          if (duplicate) {
+            results.push({
+              type: op.type,
+              title,
+              status: "success",
+              id: duplicate.id,
+              message: "Habit already active (deduplicated retry)."
+            });
             continue;
           }
-          const data = parsed.data;
+
           const habit = await prisma.habit.create({
             data: {
               userId,
-              title: data.title,
-              category: data.category,
-              targetDays: data.targetDays,
+              title,
+              category: payload.category || "GENERAL",
+              targetDays: Number(payload.targetDays) || 7,
+              currentStreak: 0,
+              bestStreak: 0,
+              completionRate: 0,
             }
           });
-          results.push({ type: op.type, status: "success", id: habit.id });
-        }
-        else if (op.type === "LOG_HABIT") {
-          const parsed = z.object({ id: z.string(), date: z.string().optional() }).safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
-            continue;
-          }
-          const data = parsed.data;
-          const existing = await prisma.habit.findUnique({ where: { id: data.id } });
-          if (existing && existing.userId === userId) {
-            const date = data.date || new Date().toISOString().split('T')[0];
-            await prisma.habitLog.upsert({
-              where: { habitId_date: { habitId: data.id, date } },
-              update: { completed: true },
-              create: { habitId: data.id, date, completed: true }
-            });
-            await prisma.habit.update({
-              where: { id: data.id },
-              data: { currentStreak: { increment: 1 } }
-            });
-            results.push({ type: op.type, status: "success", id: data.id });
-          } else {
-            results.push({ type: op.type, status: "error", message: "Habit not found or unauthorized" });
-          }
-        }
-        else if (op.type === "SEND_EMAIL_REPLY") {
-          const parsed = EmailReplySchema.safeParse(op.payload);
-          if (!parsed.success) {
-            results.push({ type: op.type, status: "error", message: parsed.error.message });
-            continue;
-          }
-          const data = parsed.data;
-          const googleIntegration = await prisma.integration.findUnique({
-            where: { userId_provider: { userId, provider: "gmail" } }
-          });
-          if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
-            try {
-              const { google } = require('googleapis');
-              const oauth2Client = new google.auth.OAuth2();
-              oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
-              const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-              
-              // Simplistic raw email formulation. Usually needs proper MIME.
-              const utf8Subject = `=?utf-8?B?${Buffer.from(data.subject || "Re: Reply").toString('base64')}?=`;
-              const messageParts = [
-                `To: ${data.to || ""}`,
-                `Subject: ${utf8Subject}`,
-                `In-Reply-To: ${data.messageId}`,
-                `References: ${data.messageId}`,
-                '',
-                data.body
-              ];
-              const message = messageParts.join('\n');
-              const encodedMessage = Buffer.from(message)
-                .toString('base64')
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
-                
-              await gmail.users.messages.send({
-                userId: 'me',
-                requestBody: {
-                  raw: encodedMessage,
-                  threadId: data.messageId // Needs actual thread ID in real app, using msg ID for now
+
+          // If a scheduledTime or preferredTime is provided, also create a calendar event
+          if (payload.scheduledTime || payload.startTime) {
+            const sDate = parseDateSafe(payload.scheduledTime || payload.startTime);
+            if (sDate) {
+              const eDate = new Date(sDate);
+              eDate.setMinutes(eDate.getMinutes() + (Number(payload.durationMinutes) || 30));
+
+              let gId: string | null = null;
+              const gRes = await createGoogleCalendarEvent(userId, {
+                summary: `Habit: ${title}`,
+                description: `Daily habit block for ${title}`,
+                startTime: sDate,
+                endTime: eDate,
+                colorId: "2" // Sage
+              });
+              if (gRes.success && gRes.googleEventId) gId = gRes.googleEventId;
+
+              await prisma.calendarEvent.create({
+                data: {
+                  userId,
+                  title: `Habit: ${title}`,
+                  startTime: sDate,
+                  endTime: eDate,
+                  category: "HABIT",
+                  isTimeBlock: true,
+                  googleEventId: gId,
+                  color: "#10B981"
                 }
               });
-              results.push({ type: op.type, status: "success", message: "Email reply sent" });
-            } catch (err) {
-              console.error("Gmail send error:", err);
-              results.push({ type: op.type, status: "error", message: "Gmail API error" });
             }
+          }
+
+          results.push({
+            type: op.type,
+            title,
+            status: "success",
+            id: habit.id,
+            message: "Habit created & tracking consistency on dashboard."
+          });
+        }
+
+        // 9. LOG_HABIT
+        else if (op.type === "LOG_HABIT") {
+          const habitId = payload.id;
+          const habit = await prisma.habit.findFirst({ where: { id: habitId, userId } });
+          if (!habit) {
+            results.push({ type: op.type, status: "error", message: "Habit not found" });
+            continue;
+          }
+
+          const date = payload.date || new Date().toISOString().split("T")[0];
+          await prisma.habitLog.upsert({
+            where: { habitId_date: { habitId, date } },
+            update: { completed: true },
+            create: { habitId, date, completed: true }
+          });
+
+          await prisma.habit.update({
+            where: { id: habitId },
+            data: { currentStreak: { increment: 1 } }
+          });
+
+          results.push({
+            type: op.type,
+            title: habit.title,
+            status: "success",
+            id: habitId,
+            message: `Habit logged for ${date}. Streak updated.`
+          });
+        }
+
+        // 10. CREATE_NOTION_PAGE
+        else if (op.type === "CREATE_NOTION_PAGE") {
+          const title = payload.title || "Chronos Plan";
+          const content = payload.content || "";
+
+          const notionIntegration = await prisma.integration.findUnique({
+            where: { userId_provider: { userId, provider: "notion" } }
+          });
+
+          if (!notionIntegration || notionIntegration.status !== "Connected" || !notionIntegration.accessToken) {
+            results.push({
+              type: op.type,
+              title,
+              status: "requires_auth",
+              message: "Notion is not connected. Please connect Notion in Settings -> Integrations.",
+              externalSync: {
+                provider: "notion",
+                status: "not_connected",
+                details: "Authorization required"
+              }
+            });
+            continue;
+          }
+
+          // Find suitable parent page if not supplied
+          let parentPageId = payload.parentPageId;
+          if (!parentPageId) {
+            const searchRes = await fetch("https://api.notion.com/v1/search", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${notionIntegration.accessToken}`,
+                "Notion-Version": "2022-06-28",
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ filter: { property: "object", value: "page" }, page_size: 1 })
+            });
+
+            if (searchRes.ok) {
+              const searchData = await searchRes.json();
+              if (searchData.results?.length > 0) {
+                parentPageId = searchData.results[0].id;
+              }
+            }
+          }
+
+          if (!parentPageId) {
+            results.push({
+              type: op.type,
+              title,
+              status: "error",
+              message: "No accessible parent page found in your Notion workspace."
+            });
+            continue;
+          }
+
+          const notionRes = await fetch("https://api.notion.com/v1/pages", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${notionIntegration.accessToken}`,
+              "Notion-Version": "2022-06-28",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              parent: { page_id: parentPageId },
+              properties: {
+                title: { title: [{ text: { content: title } }] }
+              },
+              children: markdownToNotionBlocks(content)
+            })
+          });
+
+          if (!notionRes.ok) {
+            const errText = await notionRes.text();
+            console.error("Notion API error:", errText);
+            results.push({
+              type: op.type,
+              title,
+              status: "error",
+              message: `Notion API failed to create page: ${errText.slice(0, 100)}`
+            });
           } else {
-            results.push({ type: op.type, status: "error", message: "Gmail not connected" });
+            const resData = await notionRes.json();
+            results.push({
+              type: op.type,
+              title,
+              status: "success",
+              id: resData.id,
+              message: "Notion page created in your workspace.",
+              externalSync: {
+                provider: "notion",
+                status: "synced",
+                details: resData.url
+              }
+            });
           }
         }
-      } catch (opError) {
-        console.error("Operation failed:", opError);
-        results.push({ type: op.type, status: "error", message: "Server error during execution" });
+      } catch (opErr: any) {
+        console.error(`Operation ${op?.type} failed:`, opErr?.message || opErr);
+        results.push({
+          type: op?.type || "UNKNOWN",
+          status: "error",
+          message: opErr?.message || "Internal error during operation execution."
+        });
       }
     }
 
     return NextResponse.json({ success: true, results });
-  } catch (error) {
-    console.error("AI Execute Error:", error);
+  } catch (error: any) {
+    console.error("AI Execute Route Error:", error);
     return NextResponse.json(
-      { success: false, message: "Execution processing failed." },
+      { success: false, message: `Execution failed: ${error?.message || "Unknown"}` },
       { status: 500 }
     );
   }

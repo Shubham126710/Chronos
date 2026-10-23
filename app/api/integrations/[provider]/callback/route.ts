@@ -68,13 +68,28 @@ export async function GET(req: Request, { params }: { params: Promise<{ provider
       return NextResponse.redirect(`${process.env.NEXTAUTH_URL}/?error=missing_credentials`);
     }
 
-    let tokenData = null;
+    let tokenData: any = null;
     let newStatus = "Connected";
+
+    let tokenBody: string;
+    if (provider === "notion") {
+      headers["Content-Type"] = "application/json";
+      const clientId = process.env[config.clientIdEnv] || "";
+      const clientSecret = process.env[config.clientSecretEnv] || "";
+      headers["Authorization"] = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`;
+      tokenBody = JSON.stringify({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+      });
+    } else {
+      tokenBody = tokenParams.toString();
+    }
 
     const tokenRes = await fetch(tokenUrl, {
       method: "POST",
       headers,
-      body: tokenParams.toString(),
+      body: tokenBody,
     });
 
     if (!tokenRes.ok) {
@@ -82,6 +97,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ provider
       newStatus = "Error";
     } else {
       tokenData = await tokenRes.json();
+    }
+
+    // Preserve existing refresh token if provider does not return a new one on re-auth
+    const existingIntegration = await prisma.integration.findUnique({
+      where: { userId_provider: { userId, provider } }
+    });
+
+    const finalAccessToken = tokenData?.access_token || existingIntegration?.accessToken || null;
+    const finalRefreshToken = tokenData?.refresh_token || existingIntegration?.refreshToken || null;
+    let finalMetadata = existingIntegration?.metadata;
+    if (tokenData?.workspace_name || tokenData?.workspace_id) {
+      finalMetadata = JSON.stringify({
+        workspaceName: tokenData.workspace_name,
+        workspaceId: tokenData.workspace_id,
+        botId: tokenData.bot_id,
+      });
     }
 
     await prisma.integration.upsert({
@@ -92,16 +123,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ provider
         }
       },
       update: {
-        accessToken: tokenData?.access_token || null,
-        refreshToken: tokenData?.refresh_token || null,
+        accessToken: finalAccessToken,
+        refreshToken: finalRefreshToken,
+        metadata: finalMetadata,
         status: newStatus,
         updatedAt: new Date()
       },
       create: {
         userId,
         provider,
-        accessToken: tokenData?.access_token || null,
-        refreshToken: tokenData?.refresh_token || null,
+        accessToken: finalAccessToken,
+        refreshToken: finalRefreshToken,
+        metadata: finalMetadata,
         status: newStatus,
       }
     });

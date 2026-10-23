@@ -3,6 +3,7 @@ import { prisma } from "../../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { z } from "zod";
+import { recalculateGoalProgress } from "../../../../lib/goals/progress";
 
 const updateTaskSchema = z.object({
   title: z.string().min(1, "Title is required").optional(),
@@ -42,6 +43,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       },
     });
 
+    if (task.goalId) {
+      await recalculateGoalProgress(task.goalId).catch(() => {});
+    }
+
     return NextResponse.json({ success: true, data: updatedTask });
   } catch (error) {
     console.error("PATCH /api/tasks/[id] error:", error);
@@ -67,6 +72,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     await prisma.task.delete({ where: { id } });
+
+    if (task.goalId) {
+      await recalculateGoalProgress(task.goalId).catch(() => {});
+    }
 
     return NextResponse.json({ success: true, message: "Task deleted" });
   } catch (error) {

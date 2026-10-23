@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]/route";
+import { getGoogleOAuth2Client, createGoogleCalendarEvent } from "../../../lib/integrations/google";
+import { google } from "googleapis";
 
 export async function GET(req: Request) {
   try {
@@ -53,39 +55,15 @@ export async function GET(req: Request) {
     });
 
     let allEvents = [...dbEvents];
+    const knownGoogleIds = new Set(dbEvents.filter(e => e.googleEventId).map(e => e.googleEventId));
 
     // Try to fetch Google Calendar Events
-    const googleIntegration = await prisma.integration.findUnique({
-      where: { userId_provider: { userId, provider: "google" } }
-    });
+    const { client: oauth2Client, integration: googleIntegration } = await getGoogleOAuth2Client(userId);
 
-    if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
+    if (oauth2Client && googleIntegration) {
       try {
-        const { google } = require('googleapis');
-        const oauth2Client = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET
-        );
-        oauth2Client.setCredentials({ 
-          access_token: googleIntegration.accessToken,
-          refresh_token: googleIntegration.refreshToken
-        });
+        const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
-        // Optional: save new tokens if they are refreshed
-        oauth2Client.on('tokens', async (tokens: any) => {
-          if (tokens.access_token) {
-            await prisma.integration.update({
-              where: { id: googleIntegration.id },
-              data: { 
-                accessToken: tokens.access_token,
-                ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {})
-              }
-            });
-          }
-        });
-
-        const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-        
         let timeMin = new Date();
         let timeMax = new Date();
         if (whereClause.startTime?.gte) timeMin = whereClause.startTime.gte;
@@ -93,42 +71,46 @@ export async function GET(req: Request) {
         else timeMax.setMonth(timeMax.getMonth() + 1); // default 1 month
 
         const gRes = await calendar.events.list({
-          calendarId: 'primary',
+          calendarId: "primary",
           timeMin: timeMin.toISOString(),
           timeMax: timeMax.toISOString(),
-          maxResults: 50,
+          maxResults: 100,
           singleEvents: true,
-          orderBy: 'startTime',
+          orderBy: "startTime",
         });
 
-        const gEvents = gRes.data.items?.map((item: any) => ({
-          id: `gcal-${item.id}`,
-          title: item.summary || "Busy",
-          description: item.description || "",
-          startTime: item.start?.dateTime || item.start?.date,
-          endTime: item.end?.dateTime || item.end?.date,
-          category: "EXTERNAL",
-          isTimeBlock: false,
-          color: "#4285F4",
-          isGoogleEvent: true
-        })) || [];
+        const newExternalEvents: any[] = [];
 
-        allEvents = [...allEvents, ...gEvents].sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-      } catch (err: any) {
-        console.error("Google Calendar fetch error:", err);
-        // If auth error, update integration status
-        if (err.code === 401 || err.code === 403) {
-          await prisma.integration.update({
-            where: { id: googleIntegration.id },
-            data: { status: "Reconnect" }
+        for (const item of (gRes.data.items || [])) {
+          // Prevent duplicates if already linked to a Chronos event
+          if (item.id && knownGoogleIds.has(item.id)) {
+            continue;
+          }
+
+          newExternalEvents.push({
+            id: `gcal-${item.id}`,
+            title: item.summary || "Busy",
+            description: item.description || "",
+            startTime: item.start?.dateTime || item.start?.date,
+            endTime: item.end?.dateTime || item.end?.date,
+            category: "EXTERNAL",
+            isTimeBlock: false,
+            color: "#4285F4",
+            isGoogleEvent: true
           });
         }
+
+        allEvents = [...allEvents, ...newExternalEvents].sort(
+          (a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+        );
+      } catch (err: any) {
+        console.error("Google Calendar fetch error:", err);
       }
     }
 
-    const isGoogleConnected = googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken;
+    const isGoogleConnected = !!(googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken);
 
-    return NextResponse.json({ success: true, data: allEvents, isGoogleConnected: !!isGoogleConnected });
+    return NextResponse.json({ success: true, data: allEvents, isGoogleConnected });
   } catch (error) {
     console.error("GET /api/calendar error:", error);
     return NextResponse.json({ success: false, message: "Failed to fetch calendar events" }, { status: 500 });
@@ -150,6 +132,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Title, startTime, and endTime required" }, { status: 400 });
     }
 
+    // Attempt to sync to Google Calendar first if connected
+    let googleEventId: string | null = null;
+    let googleSyncStatus = "Not Connected";
+
+    const gResult = await createGoogleCalendarEvent(userId, {
+      summary: title,
+      description,
+      startTime,
+      endTime,
+      colorId: "9"
+    });
+
+    if (gResult.success && gResult.googleEventId) {
+      googleEventId = gResult.googleEventId;
+      googleSyncStatus = "Synced";
+    } else if (gResult.error && gResult.error !== "GOOGLE_NOT_CONNECTED") {
+      googleSyncStatus = `Failed: ${gResult.error}`;
+    }
+
     const event = await prisma.calendarEvent.create({
       data: {
         userId,
@@ -160,51 +161,15 @@ export async function POST(req: Request) {
         category: category || "FOCUS",
         isTimeBlock: isTimeBlock || false,
         color: color || "#7B5CFF",
+        googleEventId,
       },
     });
 
-    const googleIntegration = await prisma.integration.findUnique({
-      where: { userId_provider: { userId, provider: "google" } }
+    return NextResponse.json({
+      success: true,
+      data: event,
+      googleSyncStatus
     });
-
-    if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
-      try {
-        const { google } = require('googleapis');
-        const oauth2Client = new google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET
-        );
-        oauth2Client.setCredentials({ 
-          access_token: googleIntegration.accessToken,
-          refresh_token: googleIntegration.refreshToken
-        });
-
-        const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-        
-        await calendar.events.insert({
-          calendarId: 'primary',
-          requestBody: {
-            summary: title,
-            description: description,
-            start: { dateTime: new Date(startTime).toISOString() },
-            end: { dateTime: new Date(endTime).toISOString() },
-            colorId: '9', // Blueberry color
-          }
-        });
-      } catch (err: any) {
-        console.error("Google Calendar insert error:", err);
-        // Do not fail the local creation if Google fails, just log it.
-        // Or could set status to reconnect if it's an auth error.
-        if (err.code === 401 || err.code === 403) {
-          await prisma.integration.update({
-            where: { id: googleIntegration.id },
-            data: { status: "Reconnect" }
-          });
-        }
-      }
-    }
-
-    return NextResponse.json({ success: true, data: event });
   } catch (error) {
     console.error("POST /api/calendar error:", error);
     return NextResponse.json({ success: false, message: "Failed to create event" }, { status: 500 });

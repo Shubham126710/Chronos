@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
+import { updateGoogleCalendarEvent, deleteGoogleCalendarEvent } from "../../../../lib/integrations/google";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -29,53 +30,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
     }
 
-    // Prepare Google updates if necessary
+    // Sync updates to Google Calendar if linked or external
     if (googleEventIdToUpdate) {
-      const googleIntegration = await prisma.integration.findUnique({
-        where: { userId_provider: { userId, provider: "google" } }
+      await updateGoogleCalendarEvent(userId, googleEventIdToUpdate, {
+        summary: body.title,
+        description: body.description,
+        startTime: body.startTime,
+        endTime: body.endTime,
       });
-
-      if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
-        try {
-          const { google } = require('googleapis');
-          const oauth2Client = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET
-          );
-          oauth2Client.setCredentials({
-            access_token: googleIntegration.accessToken,
-            refresh_token: googleIntegration.refreshToken
-          });
-
-          const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-          const patchBody: any = {};
-          if (body.title !== undefined) patchBody.summary = body.title;
-          if (body.description !== undefined) patchBody.description = body.description;
-          if (body.startTime !== undefined) patchBody.start = { dateTime: new Date(body.startTime).toISOString() };
-          if (body.endTime !== undefined) patchBody.end = { dateTime: new Date(body.endTime).toISOString() };
-
-          if (Object.keys(patchBody).length > 0) {
-            await calendar.events.patch({
-              calendarId: 'primary',
-              eventId: googleEventIdToUpdate,
-              requestBody: patchBody
-            });
-          }
-        } catch (err: any) {
-          console.error("Google Calendar patch error:", err);
-          if (err.code === 401 || err.code === 403) {
-            await prisma.integration.update({
-              where: { id: googleIntegration.id },
-              data: { status: "Reconnect" }
-            });
-          }
-        }
-      }
     }
 
     if (isGcalOnly) {
-      // It was purely a google event, we just return success
       return NextResponse.json({ success: true, message: "Google Event updated" });
     }
 
@@ -125,38 +90,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     }
 
     if (googleEventIdToDelete) {
-      const googleIntegration = await prisma.integration.findUnique({
-        where: { userId_provider: { userId, provider: "google" } }
-      });
-
-      if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
-        try {
-          const { google } = require('googleapis');
-          const oauth2Client = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET
-          );
-          oauth2Client.setCredentials({
-            access_token: googleIntegration.accessToken,
-            refresh_token: googleIntegration.refreshToken
-          });
-
-          const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-          await calendar.events.delete({
-            calendarId: 'primary',
-            eventId: googleEventIdToDelete,
-          });
-        } catch (err: any) {
-          console.error("Google Calendar delete error:", err);
-          if (err.code === 401 || err.code === 403) {
-            await prisma.integration.update({
-              where: { id: googleIntegration.id },
-              data: { status: "Reconnect" }
-            });
-          }
-        }
-      }
+      await deleteGoogleCalendarEvent(userId, googleEventIdToDelete);
     }
 
     if (isGcalOnly) {

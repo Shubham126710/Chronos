@@ -1,12 +1,38 @@
 import { NextResponse } from "next/server";
-import { generateText, tool, isStepCount } from "ai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createMistral } from "@ai-sdk/mistral";
 import { z } from "zod";
 import { prisma } from "../../../../lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../../lib/auth";
+import { executeStructuredWithFallback } from "../../../../lib/ai/client";
+
+// Structured Schema for the AI Command Response
+const AICommandResponseSchema = z.object({
+  title: z.string().describe("A concise 3-6 word title of the action proposed."),
+  summary: z.string().describe("1-2 sentences summarizing the analysis and plan."),
+  actionLabel: z.string().describe("Button label (e.g. 'Apply Plan', 'Schedule Sessions', 'Create Habit')."),
+  details: z.array(z.string()).describe("3-4 bullet points explaining the actions, schedule, or strategy."),
+  operations: z.array(z.object({
+    type: z.enum([
+      "CREATE_TASK", "UPDATE_TASK", "DELETE_TASK",
+      "CREATE_EVENT", "UPDATE_EVENT", "DELETE_EVENT",
+      "CREATE_GOAL", "UPDATE_GOAL", "DELETE_GOAL",
+      "CREATE_HABIT", "LOG_HABIT",
+      "CREATE_NOTION_PAGE"
+    ]),
+    title: z.string().optional().describe("Title for task, event, habit, or goal"),
+    description: z.string().optional().describe("Description or notes"),
+    startTime: z.string().optional().describe("ISO 8601 string for calendar events"),
+    endTime: z.string().optional().describe("ISO 8601 string for calendar events"),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional().describe("Priority for tasks"),
+    estimatedMinutes: z.number().optional().describe("Estimated minutes for tasks"),
+    dueDate: z.string().optional().describe("ISO 8601 string for task due date"),
+    category: z.string().optional().describe("Category for habit, event, or task"),
+    targetDays: z.number().optional().describe("Target days per week for habit"),
+    content: z.string().optional().describe("Markdown content for Notion page or note"),
+    parentId: z.string().optional().describe("Parent goal ID for milestones"),
+    id: z.string().optional().describe("Entity ID for update or delete operations")
+  })).default([])
+});
 
 export async function POST(req: Request) {
   try {
@@ -18,12 +44,12 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { query } = body;
 
-    if (!query) {
-      return NextResponse.json({ success: false, message: "Missing query" }, { status: 400 });
+    if (!query || typeof query !== "string" || !query.trim()) {
+      return NextResponse.json({ success: false, message: "Missing command query" }, { status: 400 });
     }
 
-    // Rate Limiting Logic using ActivityLog
-    const RATE_LIMIT = parseInt(process.env.AI_RATE_LIMIT || "5", 10);
+    // Server-side sliding-window Rate Limiting per authenticated user
+    const RATE_LIMIT = parseInt(process.env.AI_RATE_LIMIT || "15", 10);
     const RATE_LIMIT_WINDOW_SECONDS = parseInt(process.env.AI_RATE_LIMIT_WINDOW || "60", 10);
     const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_SECONDS * 1000);
 
@@ -38,12 +64,14 @@ export async function POST(req: Request) {
 
       if (recentRequests >= RATE_LIMIT) {
         return NextResponse.json(
-          { success: false, message: "Rate limit exceeded. Please try again later." },
+          {
+            success: false,
+            message: `Rate limit reached (${recentRequests}/${RATE_LIMIT} in ${RATE_LIMIT_WINDOW_SECONDS}s). Please wait a moment.`
+          },
           { status: 429 }
         );
       }
 
-      // Log this request for rate limit tracking
       await prisma.activityLog.create({
         data: {
           userId,
@@ -53,448 +81,113 @@ export async function POST(req: Request) {
         }
       });
     } catch (dbError: any) {
-      console.error("Database error during rate limit check (possible invalid user ID):", dbError);
-      if (dbError.code === 'P2003') {
-        // Foreign key constraint failed - user doesn't exist in DB anymore
-        return NextResponse.json({ success: false, message: "User session invalid. Please log out and log back in." }, { status: 401 });
+      if (dbError?.code === "P2003") {
+        return NextResponse.json({ success: false, message: "Session expired. Please log in again." }, { status: 401 });
       }
-      // If it's another DB error, we can optionally fail or proceed. Let's fail safely.
-      return NextResponse.json({ success: false, message: "Internal system error during rate limit check." }, { status: 500 });
+      console.warn("Non-fatal rate-limit check error:", dbError?.message);
     }
 
-    const availableModels = [];
-
-    // 1. Google Gemini (Primary)
-    if (process.env.GEMINI_API_KEY) {
-      const google = createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY });
-      availableModels.push(google(process.env.GEMINI_MODEL || 'gemini-1.5-flash'));
-    }
-
-    // 2. Groq (Fast Fallback - High Tool Use Capability)
-    if (process.env.GROQ_API_KEY) {
-      const groq = createOpenAI({
-        baseURL: 'https://api.groq.com/openai/v1',
-        apiKey: process.env.GROQ_API_KEY,
-      });
-      availableModels.push(groq(process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'));
-    }
-
-    // 3. OpenRouter (Free Router Models with Tool Support)
-    if (process.env.OPENROUTER_API_KEY) {
-      const openrouter = createOpenAI({
-        baseURL: 'https://openrouter.ai/api/v1',
-        apiKey: process.env.OPENROUTER_API_KEY,
-      });
-      availableModels.push(openrouter(process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free'));
-    }
-
-    // 4. Mistral AI
-    if (process.env.MISTRAL_API_KEY) {
-      const mistral = createMistral({ apiKey: process.env.MISTRAL_API_KEY });
-      availableModels.push(mistral(process.env.MISTRAL_MODEL || 'mistral-large-latest'));
-    }
-
-    if (availableModels.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          title: "AI Analysis (Fallback Mode)",
-          summary: "I parsed your query: " + query + ". However, no AI API keys are configured.",
-          actionLabel: "Configure API Key",
-          details: ["Please add GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, or MISTRAL_API_KEY to your .env file."],
-          operations: []
-        }
-      });
-    }
-
-    // System context injected into prompt
+    // Pre-fetch user's contextual data to pass in a single prompt turn
     const now = new Date();
-    const systemContext = `
-      You are the Chronos AI Executive, an intelligent productivity agent.
-      Current Date & Time: ${now.toISOString()}
-      Your job is to read the user's data using the provided tools, decide on a course of action, and propose operations if necessary.
-      
-      RULES:
-      1. ONLY retrieve data necessary for the request.
-      2. If asked to modify, create, or delete data, use the 'respondToUser' tool to propose the operations. 
-      3. The user MUST confirm all operations in the UI. You do not execute mutations yourself, you just propose them.
-      4. You MUST end your turn by calling the 'respondToUser' tool. Never respond in plain text to the user.
-      5. CONTEXTUAL AWARENESS: If the user asks to plan their day, prepare for tomorrow, or what's important, combine data from getTasks, getCalendarEvents, and searchGmail to provide a comprehensive proposed schedule.
-      6. TIME BLOCKING & COMPLEX PLANNING: When the user types ANY goal, study plan, or project (e.g., "7 day DSA plan", "prepare for calculus"), you MUST break it down into granular steps. ALWAYS prefer time-blocking: create multiple 'CREATE_EVENT' operations to schedule specific study/work sessions on their calendar across different days, rather than just creating tasks. Use 'CREATE_TASK' for specific to-dos, and 'CREATE_EVENT' for dedicated focus time.
-      7. DATES: Always use proper ISO 8601 strings for dates (e.g. "2026-10-02T10:00:00Z"). Calculate future dates based on the Current Date & Time.
-      8. UI RESPONSE: When calling respondToUser, you MUST provide a clear 'title', a 1-2 sentence 'summary', a short 'actionLabel' for the confirm button, and a 'details' array with 3-4 bullet points explaining your plan. Never leave these empty!
-    `;
+    const nextWeek = new Date(now);
+    nextWeek.setDate(nextWeek.getDate() + 7);
 
-    // Define tools
-    const tools = {
-      getTasks: tool({
-        description: "Get the user's tasks. Optionally filter by completion status, priority, or due date.",
-        parameters: z.object({
-          isCompleted: z.boolean().optional(),
-          priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),
-          overdue: z.boolean().optional().describe("If true, fetches tasks where dueDate is past the current date")
-        }),
-        // @ts-ignore
-        execute: async (args: any) => {
-          const { isCompleted, priority, overdue } = args;
-          const where: any = { userId };
-          if (isCompleted !== undefined) where.isCompleted = isCompleted;
-          if (priority !== undefined) where.priority = priority;
-          if (overdue === true) {
-            where.dueDate = { lt: new Date() };
-          }
-          const tasks = await prisma.task.findMany({ where, take: 50 });
-          return { tasks: tasks.map(t => ({ id: t.id, title: t.title, priority: t.priority, dueDate: t.dueDate, isCompleted: t.isCompleted })) };
-        }
+    const [tasks, events, goals, habits, integrations] = await Promise.all([
+      prisma.task.findMany({
+        where: { userId, isCompleted: false },
+        take: 15,
+        orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+        select: { id: true, title: true, priority: true, dueDate: true }
       }),
-      getCalendarEvents: tool({
-        description: "Get the user's calendar events within a date range.",
-        parameters: z.object({
-          startDate: z.string().describe("ISO date string for start"),
-          endDate: z.string().describe("ISO date string for end")
-        }),
-        // @ts-ignore
-        execute: async (args: any) => {
-          const { startDate, endDate } = args;
-          const events = await prisma.calendarEvent.findMany({
-            where: {
-              userId,
-              startTime: { gte: new Date(startDate) },
-              endTime: { lte: new Date(endDate) }
-            },
-            take: 50
-          });
-          
-          let allEvents = events.map(e => ({ id: e.id, title: e.title, startTime: e.startTime, endTime: e.endTime, category: e.category, isGoogleEvent: false }));
-
-          // Try to fetch Google Calendar Events
-          const googleIntegration = await prisma.integration.findUnique({
-            where: { userId_provider: { userId, provider: "google" } }
-          });
-          if (googleIntegration && googleIntegration.status === "Connected" && googleIntegration.accessToken) {
-            try {
-              const { google } = require('googleapis');
-              const oauth2Client = new google.auth.OAuth2(
-                process.env.GOOGLE_CLIENT_ID,
-                process.env.GOOGLE_CLIENT_SECRET
-              );
-              oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
-              const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-              
-              const gRes = await calendar.events.list({
-                calendarId: 'primary',
-                timeMin: new Date(startDate).toISOString(),
-                timeMax: new Date(endDate).toISOString(),
-                maxResults: 50,
-                singleEvents: true,
-                orderBy: 'startTime',
-              });
-              
-              const gEvents = gRes.data.items?.map((item: any) => ({
-                id: `gcal-${item.id}`,
-                title: item.summary || "Busy",
-                startTime: new Date(item.start?.dateTime || item.start?.date).toISOString(),
-                endTime: new Date(item.end?.dateTime || item.end?.date).toISOString(),
-                category: "EXTERNAL",
-                isGoogleEvent: true
-              })) || [];
-              
-              allEvents = [...allEvents, ...gEvents].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-            } catch (err) {
-              console.error("Google Calendar AI sync error:", err);
-            }
-          }
-          
-          return { events: allEvents };
-        }
+      prisma.calendarEvent.findMany({
+        where: {
+          userId,
+          startTime: { gte: new Date(now.setHours(0, 0, 0, 0)), lte: nextWeek }
+        },
+        take: 15,
+        orderBy: { startTime: "asc" },
+        select: { id: true, title: true, startTime: true, endTime: true, category: true }
       }),
-      getGoals: tool({
-        description: "Get the user's active goals.",
-        parameters: z.object({}),
-        // @ts-ignore
-        execute: async (args: any) => {
-          const goals = await prisma.goal.findMany({ where: { userId, status: "ACTIVE" }, take: 10 });
-          return { goals: goals.map(g => ({ id: g.id, title: g.title, progress: g.progress })) };
-        }
+      prisma.goal.findMany({
+        where: { userId, status: "ACTIVE" },
+        take: 8,
+        select: { id: true, title: true, progress: true }
       }),
-      getHabits: tool({
-        description: "Get the user's habits and streaks.",
-        parameters: z.object({}),
-        // @ts-ignore
-        execute: async (args: any) => {
-          const habits = await prisma.habit.findMany({ where: { userId }, take: 15 });
-          return { habits: habits.map(h => ({ id: h.id, title: h.title, currentStreak: h.currentStreak, targetDays: h.targetDays })) };
-        }
+      prisma.habit.findMany({
+        where: { userId },
+        take: 10,
+        select: { id: true, title: true, currentStreak: true, category: true }
       }),
-      getDashboardInsights: tool({
-        description: "Get summary stats of the user's productivity (active tasks, total goals, etc.).",
-        parameters: z.object({}),
-        // @ts-ignore
-        execute: async (args: any) => {
-          const tasksCount = await prisma.task.count({ where: { userId, isCompleted: false } });
-          const goalsCount = await prisma.goal.count({ where: { userId } });
-          const habitsCount = await prisma.habit.count({ where: { userId } });
-          return { activeTasks: tasksCount, totalGoals: goalsCount, activeHabits: habitsCount };
-        }
-      }),
-      getZoomMeetings: tool({
-        description: "Get the user's upcoming Zoom meetings if their account is connected.",
-        parameters: z.object({}),
-        // @ts-ignore
-        execute: async (args: any) => {
-          const zoomIntegration = await prisma.integration.findUnique({
-            where: { userId_provider: { userId, provider: "zoom" } }
-          });
-          if (!zoomIntegration || zoomIntegration.status !== "Connected" || !zoomIntegration.accessToken) {
-            return { error: "Zoom is not connected. User must connect Zoom first." };
-          }
-          try {
-            const response = await fetch("https://api.zoom.us/v2/users/me/meetings?type=upcoming", {
-              headers: { "Authorization": `Bearer ${zoomIntegration.accessToken}` }
-            });
-            if (!response.ok) return { error: "Failed to fetch from Zoom API" };
-            const data = await response.json();
-            return { meetings: data.meetings?.map((m: any) => ({ topic: m.topic, startTime: m.start_time, duration: m.duration, joinUrl: m.join_url })) || [] };
-          } catch (e) {
-            return { error: "Zoom fetch failed" };
-          }
-        }
-      }),
-      searchNotion: tool({
-        description: "Search the user's connected Notion workspace for pages or databases.",
-        parameters: z.object({
-          query: z.string().describe("The search query string")
-        }),
-        // @ts-ignore
-        execute: async (args: any) => {
-          const { query } = args;
-          const notionIntegration = await prisma.integration.findUnique({
-            where: { userId_provider: { userId, provider: "notion" } }
-          });
-          if (!notionIntegration || notionIntegration.status !== "Connected" || !notionIntegration.accessToken) {
-            return { error: "Notion is not connected. User must connect Notion first." };
-          }
-          try {
-            const response = await fetch("https://api.notion.com/v1/search", {
-              method: "POST",
-              headers: { 
-                "Authorization": `Bearer ${notionIntegration.accessToken}`,
-                "Notion-Version": "2022-06-28",
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({ query, page_size: 5 })
-            });
-            if (!response.ok) return { error: "Failed to fetch from Notion API" };
-            const data = await response.json();
-            return { pages: data.results?.map((r: any) => ({
-              id: r.id,
-              url: r.url
-            })) || [] };
-          } catch (e) {
-            return { error: "Notion search failed" };
-          }
-        }
-      }),
-      searchGmail: tool({
-        description: "Search the user's Gmail inbox for emails.",
-        parameters: z.object({
-          query: z.string().describe("The search query (e.g. 'is:unread', 'from:john', 'subject:project')"),
-          maxResults: z.number().optional().default(5)
-        }),
-        // @ts-ignore
-        execute: async (args: any) => {
-          const { query, maxResults } = args;
-          const googleIntegration = await prisma.integration.findUnique({
-            where: { userId_provider: { userId, provider: "gmail" } }
-          });
-          if (!googleIntegration || googleIntegration.status !== "Connected" || !googleIntegration.accessToken) {
-            return { error: "Gmail is not connected. User must connect Gmail first." };
-          }
-          try {
-            const { google } = require('googleapis');
-            const oauth2Client = new google.auth.OAuth2(
-              process.env.GOOGLE_CLIENT_ID,
-              process.env.GOOGLE_CLIENT_SECRET
-            );
-            oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
-            const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-            
-            const res = await gmail.users.messages.list({ userId: 'me', q: query, maxResults });
-            const messages = res.data.messages || [];
-            
-            const detailedMessages = await Promise.all(
-              messages.map(async (msg: any) => {
-                const msgDetails = await gmail.users.messages.get({
-                  userId: 'me', id: msg.id, format: 'metadata', metadataHeaders: ['Subject', 'From', 'Date']
-                });
-                const headers = msgDetails.data.payload.headers;
-                return {
-                  id: msgDetails.data.id,
-                  subject: headers.find((h: any) => h.name === 'Subject')?.value || 'No Subject',
-                  from: headers.find((h: any) => h.name === 'From')?.value || 'Unknown Sender',
-                  snippet: msgDetails.data.snippet
-                };
-              })
-            );
-            return { emails: detailedMessages };
-          } catch (e) {
-            return { error: "Gmail search failed" };
-          }
-        }
-      }),
-      readEmail: tool({
-        description: "Read the full content of a specific email by its ID.",
-        parameters: z.object({
-          messageId: z.string().describe("The Gmail message ID")
-        }),
-        // @ts-ignore
-        execute: async (args: any) => {
-          const { messageId } = args;
-          const googleIntegration = await prisma.integration.findUnique({
-            where: { userId_provider: { userId, provider: "gmail" } }
-          });
-          if (!googleIntegration || googleIntegration.status !== "Connected" || !googleIntegration.accessToken) {
-            return { error: "Gmail is not connected." };
-          }
-          try {
-            const { google } = require('googleapis');
-            const oauth2Client = new google.auth.OAuth2(
-              process.env.GOOGLE_CLIENT_ID,
-              process.env.GOOGLE_CLIENT_SECRET
-            );
-            oauth2Client.setCredentials({ access_token: googleIntegration.accessToken, refresh_token: googleIntegration.refreshToken });
-            const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-            
-            const msgDetails = await gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' });
-            let body = msgDetails.data.snippet;
-            const parts = msgDetails.data.payload?.parts;
-            if (parts && parts.length > 0) {
-              const textPart = parts.find((p: any) => p.mimeType === 'text/plain');
-              if (textPart && textPart.body?.data) {
-                body = Buffer.from(textPart.body.data, 'base64').toString('utf-8');
-              }
-            } else if (msgDetails.data.payload?.body?.data) {
-               body = Buffer.from(msgDetails.data.payload.body.data, 'base64').toString('utf-8');
-            }
-            return { email: { id: messageId, body: body.substring(0, 1000) } };
-          } catch (e) {
-            return { error: "Gmail read failed" };
-          }
-        }
-      }),
-      respondToUser: tool({
-        description: "ALWAYS call this tool to deliver your final response to the user. This tool sends the structured UI and proposed database operations to the user for confirmation.",
-        parameters: z.object({
-          title: z.string().describe("A short 3-6 word title of the action taken or recommended."),
-          summary: z.string().describe("A concise summary (1-2 sentences) of what you analyzed or decided."),
-          actionLabel: z.string().describe("A short button label (e.g. 'Apply Schedule', 'Create Task'). Use 'Confirm' if there are destructive operations."),
-          details: z.array(z.string()).describe("An array of 3-4 bullet points detailing the roadmap, steps, or changes."),
-          operations: z.array(z.object({
-            type: z.enum([
-              "CREATE_TASK", "UPDATE_TASK", "DELETE_TASK", 
-              "CREATE_EVENT", "UPDATE_EVENT", "DELETE_EVENT", 
-              "SEND_SLACK_MESSAGE", "CREATE_NOTION_PAGE",
-              "CREATE_GOAL", "UPDATE_GOAL", "DELETE_GOAL", 
-              "CREATE_HABIT", "LOG_HABIT", "SEND_EMAIL_REPLY"
-            ]),
-            payload: z.any().describe(
-              "Data payload for the operation.\n" +
-              "- CREATE_TASK: { title, description?, priority?, estimatedMinutes?, dueDate? }\n" +
-              "- CREATE_EVENT: { title, description?, startTime, endTime, category? }"
-            )
-          })).optional().describe("Array of proposed database operations.")
-        }),
-        // @ts-ignore
-        execute: async (args: any) => {
-          return { success: true, message: "Response sent to user. Stop generating." };
-        }
+      prisma.integration.findMany({
+        where: { userId, status: "Connected" },
+        select: { provider: true }
       })
-    };
+    ]);
 
-    const messages: any[] = [{ role: "user", content: query }];
-    let aiResponseData = null;
-    let lastError: any = null;
-    let result: any = null;
+    const connectedProviders = integrations.map(i => i.provider);
+    const systemPrompt = `You are Chronos AI Executive, an integrated productivity operating system.
+Current Time: ${new Date().toISOString()}
 
+USER STATE:
+- Connected Integrations: ${connectedProviders.length ? connectedProviders.join(", ") : "None"}
+- Active Incomplete Tasks (${tasks.length}): ${JSON.stringify(tasks)}
+- Upcoming Calendar Events (${events.length}): ${JSON.stringify(events)}
+- Active Goals (${goals.length}): ${JSON.stringify(goals)}
+- Active Habits (${habits.length}): ${JSON.stringify(habits)}
 
+ORCHESTRATION RULES:
+1. Always translate the user's intent into realistic, structured operations.
+2. For study plans or goals (e.g. "Prepare for GATE", "Study Operating Systems"):
+   - Propose CREATE_GOAL with milestones if it's a major ambition.
+   - Propose CREATE_EVENT operations with realistic ISO 8601 start/end times for dedicated focus sessions.
+   - Propose CREATE_TASK for specific action items.
+3. For habits (e.g. "Create a morning reading habit"):
+   - Propose CREATE_HABIT with targetDays (e.g. 7) and title.
+   - If the user specifies a time (e.g. 9 PM or morning), also schedule a CREATE_EVENT block.
+4. For day planning:
+   - Check existing events to avoid scheduling conflicts.
+   - Schedule open work blocks around existing events.
+5. For Notion requests:
+   - If Notion is connected (${connectedProviders.includes("notion") ? "YES" : "NO"}), propose CREATE_NOTION_PAGE with title and markdown content.
+6. Provide accurate ISO 8601 timestamps (e.g. "${new Date(Date.now() + 86400000).toISOString().split("T")[0]}T10:00:00.000Z") calculated relative to Current Time.`;
 
-    for (const model of availableModels) {
-      try {
-        result = await generateText({
-          model: model as any,
-          system: systemContext,
-          messages,
-          tools,
-          stopWhen: isStepCount(5),
-        });
-        // If we succeeded, break out of the fallback loop!
-        break;
-      } catch (err: any) {
-        console.error(`AI provider failed:`, err?.message || err);
-        lastError = err;
-        continue; // Try next fallback model
-      }
-    }
+    const aiResult = await executeStructuredWithFallback({
+      system: systemPrompt,
+      prompt: query,
+      schema: AICommandResponseSchema,
+    });
 
-    if (!result) {
-      console.error("All available AI models failed.");
-      return NextResponse.json({ 
-        success: false, 
-        message: lastError?.message || "All configured AI providers failed to process the request." 
+    if (!aiResult.success || !aiResult.data) {
+      return NextResponse.json({
+        success: false,
+        message: aiResult.error || "Unable to formulate action plan."
       }, { status: 500 });
     }
 
-    try {
-      // Find the step where respondToUser was successfully called with valid data
-      for (const step of result.steps || []) {
-        const respondCall = step.toolCalls.find((tc: any) => tc.toolName === 'respondToUser');
-        if (respondCall) {
-          const args = 'args' in respondCall ? respondCall.args : (respondCall as any).input;
-          // Only accept if the required fields actually exist (prevents hallucinated empty objects)
-          if (args && args.title && args.summary && Array.isArray(args.details)) {
-            aiResponseData = args;
-            break;
-          }
-        }
-      }
-
-      // Fallback if SDK version doesn't return steps
-      if (!aiResponseData && result.toolCalls) {
-        const respondCall = result.toolCalls.find((tc: any) => tc.toolName === 'respondToUser');
-        if (respondCall) {
-          const args = 'args' in respondCall ? respondCall.args : (respondCall as any).input;
-          if (args && args.title && args.summary && Array.isArray(args.details)) {
-            aiResponseData = args;
-          }
-        }
-      }
-
-    } catch (e: any) {
-      console.error("[AI Extraction Error] Failed to parse AI response:", e?.message || e);
-      return NextResponse.json({ success: false, message: "AI response extraction failed" }, { status: 500 });
-    }
-
-    if (!aiResponseData || !aiResponseData.title) {
-      aiResponseData = {
-        title: "AI Analysis Complete",
-        summary: "I analyzed your request but did not formulate a structured UI response.",
-        actionLabel: "Dismiss",
-        details: ["You can try rephrasing your request."],
-        operations: []
+    // Normalize operation payloads so they match execute endpoint format
+    const normalizedOperations = aiResult.data.operations.map(op => {
+      const payload: any = { ...op };
+      delete payload.type;
+      return {
+        type: op.type,
+        payload
       };
-    }
+    });
 
-    return NextResponse.json({ success: true, data: aiResponseData });
+    const responseData = {
+      title: aiResult.data.title,
+      summary: aiResult.data.summary,
+      actionLabel: aiResult.data.actionLabel,
+      details: aiResult.data.details,
+      operations: normalizedOperations,
+      modelUsed: aiResult.usedModel
+    };
+
+    return NextResponse.json({ success: true, data: responseData });
   } catch (error: any) {
-    console.error("AI Semantic Error Details:", error);
-    if (error?.message?.includes('429') || error?.status === 429) {
-      return NextResponse.json(
-        { success: false, message: "AI provider rate limit exceeded. Please try again later." },
-        { status: 429 }
-      );
-    }
+    console.error("AI Semantic Command Error:", error);
     return NextResponse.json(
-      { success: false, message: `AI processing failed. Details: ${error?.message || "Unknown"}` },
+      { success: false, message: `Command processing failed: ${error?.message || "Unknown"}` },
       { status: 500 }
     );
   }

@@ -23,8 +23,14 @@ export async function GET() {
       include: {
         children: {
           include: {
+            tasks: {
+              select: { id: true, title: true, isCompleted: true, priority: true, dueDate: true }
+            },
             _count: { select: { tasks: true } }
           }
+        },
+        tasks: {
+          select: { id: true, title: true, isCompleted: true, priority: true, dueDate: true }
         },
         _count: { select: { tasks: true } }
       },

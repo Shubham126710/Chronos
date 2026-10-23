@@ -1,4 +1,12 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+export interface GoalTask {
+  id: string;
+  title: string;
+  isCompleted: boolean;
+  priority: string;
+  dueDate?: string | null;
+}
 
 export interface GoalNode {
   id: string;
@@ -8,6 +16,7 @@ export interface GoalNode {
   targetDate: string;
   category: "Career" | "Academic" | "Personal" | "Health";
   linkedTasksCount: number;
+  tasks?: GoalTask[];
   children?: GoalNode[];
 }
 
@@ -26,9 +35,10 @@ export function useGoals() {
         title: g.title,
         description: g.description || "No description provided.",
         progress: g.progress || 0,
-        targetDate: "Ongoing", // Default as Prisma model lacks this
-        category: "Career", // Default as Prisma model lacks this
-        linkedTasksCount: g._count?.tasks || 0,
+        targetDate: "Ongoing",
+        category: "Career",
+        linkedTasksCount: g._count?.tasks || g.tasks?.length || 0,
+        tasks: g.tasks || [],
         children: g.children ? g.children.map(mapGoal) : undefined
       });
 
@@ -36,9 +46,28 @@ export function useGoals() {
     },
   });
 
+  const generateRoadmapMutation = useMutation({
+    mutationFn: async (goalId: string) => {
+      const res = await fetch(`/api/goals/${goalId}/roadmap`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || "Failed to generate roadmap");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["goals"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    }
+  });
+
   return {
     goals,
     isLoading,
     error,
+    generateRoadmap: (goalId: string) => generateRoadmapMutation.mutateAsync(goalId),
+    isGeneratingRoadmap: generateRoadmapMutation.isPending,
   };
 }

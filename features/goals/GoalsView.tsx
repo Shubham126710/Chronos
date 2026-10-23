@@ -1,49 +1,47 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
   Target, Sparkles, ChevronRight, ChevronDown, CheckCircle2, 
   Plus, TrendingUp, Layers, Calendar, ArrowUpRight, Zap, Flag
 } from "lucide-react";
-
-// Mock data removed in favor of React Query hook
-
 import { useGoals, GoalNode } from "./api/useGoals";
 
 export const GoalsView: React.FC = () => {
-  const { goals: fetchedGoals, isLoading } = useGoals();
+  const { goals: fetchedGoals, isLoading, generateRoadmap, isGeneratingRoadmap } = useGoals();
   const goals = fetchedGoals || [];
-  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
-    g_root_1: true,
-    g_root_2: true,
-  });
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
   const [selectedGoal, setSelectedGoal] = useState<GoalNode | null>(null);
 
-  // Automatically select first goal when loaded
+  // Automatically select first goal or update selected when goals change
   React.useEffect(() => {
-    if (goals.length > 0 && !selectedGoal) {
-      setSelectedGoal(goals[0]);
+    if (goals.length > 0) {
+      if (!selectedGoal) {
+        setSelectedGoal(goals[0]);
+      } else {
+        const found = goals.find(g => g.id === selectedGoal.id);
+        if (found) setSelectedGoal(found);
+      }
     }
   }, [goals, selectedGoal]);
-  const [isGeneratingRoadmap, setIsGeneratingRoadmap] = useState(false);
-  const [roadmapGenerated, setRoadmapGenerated] = useState(false);
 
   const toggleExpand = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setExpandedNodes((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleGenerateRoadmap = () => {
-    setIsGeneratingRoadmap(true);
-    setTimeout(() => {
-      setIsGeneratingRoadmap(false);
-      setRoadmapGenerated(true);
-    }, 1000);
+  const handleGenerateRoadmap = async () => {
+    if (!selectedGoal) return;
+    try {
+      await generateRoadmap(selectedGoal.id);
+    } catch (err: any) {
+      alert(err?.message || "Failed to generate roadmap");
+    }
   };
 
   const renderGoalNode = (node: GoalNode, depth = 0) => {
-    const isExpanded = expandedNodes[node.id];
+    const isExpanded = expandedNodes[node.id] ?? true;
     const isSelected = selectedGoal?.id === node.id;
     const hasChildren = node.children && node.children.length > 0;
 
@@ -112,7 +110,7 @@ export const GoalsView: React.FC = () => {
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[10px] uppercase tracking-widest text-foreground/50">Hierarchical Ambition Engine</span>
             <span className="text-[10px] text-foreground/50 px-2 py-0.5 border border-border">
-              [ 2 Root Goals Active ]
+              [ {goals.length} Root Goals Active ]
             </span>
           </div>
           <h2 className="text-xl font-bold text-foreground tracking-widest uppercase">
@@ -122,10 +120,6 @@ export const GoalsView: React.FC = () => {
             Connect everyday tasks and habits directly to overarching life ambitions. Watch execution compound.
           </p>
         </div>
-
-        <button className="px-4 py-2 border border-foreground text-foreground hover:bg-foreground hover:text-background transition-all uppercase tracking-widest text-[10px]">
-          [ NEW LIFE GOAL ]
-        </button>
       </div>
 
       {/* Main Grid: Goal Tree vs Goal Inspector & Roadmap */}
@@ -140,7 +134,13 @@ export const GoalsView: React.FC = () => {
           </div>
 
           <div className="space-y-3">
-            {goals.map((rootNode) => renderGoalNode(rootNode, 0))}
+            {goals.length === 0 ? (
+              <div className="p-8 border border-border text-center text-[10px] uppercase tracking-widest text-foreground/40">
+                [ NO ACTIVE GOALS. USE COMMAND PALETTE (CMD+K) TO CREATE ONE ]
+              </div>
+            ) : (
+              goals.map((rootNode) => renderGoalNode(rootNode, 0))
+            )}
           </div>
         </div>
 
@@ -174,7 +174,7 @@ export const GoalsView: React.FC = () => {
                 </div>
               </div>
 
-              {/* AI Roadmap Breakdown Button */}
+              {/* AI Roadmap Breakdown */}
               <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-widest text-foreground/60 font-bold">
@@ -182,44 +182,54 @@ export const GoalsView: React.FC = () => {
                   </span>
                 </div>
 
-                {!roadmapGenerated ? (
-                  <button
-                    onClick={handleGenerateRoadmap}
-                    disabled={isGeneratingRoadmap}
-                    className="w-full py-3 border border-foreground/50 hover:border-foreground text-foreground transition-all uppercase tracking-widest text-[10px]"
-                  >
-                    {isGeneratingRoadmap ? "[ GENERATING WEEKLY MILESTONES... ]" : "[ GENERATE WEEKLY AI ROADMAP ]"}
-                  </button>
-                ) : (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="space-y-3 p-4 border border-foreground/50"
-                  >
+                {/* Display existing milestones if present */}
+                {selectedGoal.children && selectedGoal.children.length > 0 ? (
+                  <div className="space-y-3 p-4 border border-foreground/30">
                     <div className="flex items-center justify-between border-b border-border pb-2 text-[10px] uppercase tracking-widest">
-                      <span className="font-bold text-foreground">WEEKLY AI MILESTONES</span>
+                      <span className="font-bold text-foreground">ACTIVE MILESTONES</span>
                       <span className="text-foreground/60">
-                        [ ON TRACK ]
+                        [ {selectedGoal.children.length} TOTAL ]
                       </span>
                     </div>
 
-                    <div className="space-y-3 text-[10px] uppercase tracking-widest text-foreground/80 mt-4">
-                      <div className="pl-3 border-l border-foreground flex flex-col gap-1">
-                        <p className="font-bold text-foreground">WEEK 1-2: COMPLETE LEETCODE GRAPH 50</p>
-                        <p className="text-foreground/50">Focus on Dijkstra and Minimum Spanning Trees.</p>
-                      </div>
-
-                      <div className="pl-3 border-l border-border flex flex-col gap-1">
-                        <p className="font-bold text-foreground">WEEK 3-4: LAUNCH CHRONOS AI OS DEMO</p>
-                        <p className="text-foreground/50">Deploy Next.js 15 app with WebGL shaders and Prisma 6.</p>
-                      </div>
-
-                      <div className="pl-3 border-l border-border flex flex-col gap-1">
-                        <p className="font-bold text-foreground">WEEK 5-6: CONDUCT 5 SENIOR PEER MOCKS</p>
-                        <p className="text-foreground/50">Simulate 45-min system design interview loops.</p>
-                      </div>
+                    <div className="space-y-4 text-[10px] uppercase tracking-widest text-foreground/80 mt-4">
+                      {selectedGoal.children.map((child, idx) => (
+                        <div key={child.id} className="pl-3 border-l border-foreground flex flex-col gap-1.5">
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-foreground">M{idx + 1}: {child.title}</p>
+                            <span className="text-foreground/60">[{child.progress}%]</span>
+                          </div>
+                          <p className="text-foreground/50">{child.description}</p>
+                          {child.tasks && child.tasks.length > 0 && (
+                            <div className="mt-1 space-y-1">
+                              {child.tasks.map(t => (
+                                <div key={t.id} className="flex items-center gap-2 text-[9px] text-foreground/70">
+                                  <span>{t.isCompleted ? "[✓]" : "[ ]"}</span>
+                                  <span className={t.isCompleted ? "line-through opacity-50" : ""}>{t.title}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  </motion.div>
+
+                    <button
+                      onClick={handleGenerateRoadmap}
+                      disabled={isGeneratingRoadmap}
+                      className="w-full mt-4 py-2 border border-border hover:border-foreground text-foreground transition-all uppercase tracking-widest text-[9px] disabled:opacity-50"
+                    >
+                      {isGeneratingRoadmap ? "[ REGENERATING ROADMAP... ]" : "[ REGENERATE MILESTONES ]"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleGenerateRoadmap}
+                    disabled={isGeneratingRoadmap}
+                    className="w-full py-3 border border-foreground/50 hover:border-foreground text-foreground transition-all uppercase tracking-widest text-[10px] disabled:opacity-50"
+                  >
+                    {isGeneratingRoadmap ? "[ GENERATING WEEKLY MILESTONES... ]" : "[ GENERATE WEEKLY AI ROADMAP ]"}
+                  </button>
                 )}
               </div>
             </div>

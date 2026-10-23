@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { 
   Search, Sparkles, Brain, Clock, CheckCircle2, ArrowRight, 
-  Calendar, Zap, Target, X, Layers, Flame, RefreshCw, Mail
+  Calendar, Zap, Target, X, Mail, RefreshCw, AlertCircle, ShieldAlert
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,6 +23,17 @@ interface AIQueryResponse {
   actionLabel: string;
   details: string[];
   operations?: any[];
+  executionResults?: Array<{
+    type: string;
+    title?: string;
+    status: "success" | "error" | "requires_auth";
+    message: string;
+    externalSync?: {
+      provider: string;
+      status: "synced" | "failed" | "not_connected";
+      details?: string;
+    };
+  }>;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -70,49 +81,39 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       icon: <Brain className="w-4 h-4 text-foreground" />,
     },
     {
-      title: "“Miss today’s study session?”",
-      subtitle: "Automatically reorganize remaining tasks without increasing daily load.",
-      icon: <Zap className="w-4 h-4 text-foreground" />,
-    },
-    {
-      title: "“When should I study today?”",
-      subtitle: "Find your optimal cognitive peak window.",
+      title: "“Schedule two hours of Operating Systems revision tomorrow.”",
+      subtitle: "Schedule dedicated focus session and sync to Google Calendar.",
       icon: <Clock className="w-4 h-4 text-foreground/70" />,
     },
     {
-      title: "“Can I finish everything before Friday?”",
-      subtitle: "Analyze remaining task hours versus free time blocks.",
+      title: "“Create a morning reading habit and remind me every day.”",
+      subtitle: "Establish daily habit tracking with calendar focus blocks.",
+      icon: <Zap className="w-4 h-4 text-foreground" />,
+    },
+    {
+      title: "“Break my goal of cracking GATE into manageable milestones.”",
+      subtitle: "Generate a hierarchical roadmap with tasks and milestone progress.",
       icon: <Target className="w-4 h-4 text-foreground" />,
     },
     {
-      title: "“Turn today's tasks into a Notion weekly review.”",
-      subtitle: "Save your active tasks and progress to your connected Notion workspace.",
-      icon: <Sparkles className="w-4 h-4 text-foreground/70" />,
-    },
-    {
-      title: "“Search Notion for my project notes.”",
-      subtitle: "Find your existing documentation and meeting notes seamlessly.",
-      icon: <Search className="w-4 h-4 text-foreground" />,
-    },
-    {
-      title: "“Find the emails I need to respond to today and schedule time to handle them.”",
-      subtitle: "Create time blocks automatically based on your unread important emails.",
-      icon: <Mail className="w-4 h-4 text-foreground/80" />,
-    },
-    {
-      title: "“Plan my day based on my calendar and emails.”",
-      subtitle: "Sync Gmail, Google Calendar, and Chronos Tasks for a unified action plan.",
+      title: "“Plan my day around my deadlines, existing events, and priorities.”",
+      subtitle: "Analyze temporal availability and schedule optimized work blocks.",
       icon: <Calendar className="w-4 h-4 text-[#4285F4]" />,
+    },
+    {
+      title: "“Turn today's tasks into a Notion weekly review.”",
+      subtitle: "Save active tasks and progress to your connected Notion workspace.",
+      icon: <Sparkles className="w-4 h-4 text-foreground/70" />,
     },
   ];
 
   const handleSelectPrompt = (prompt: typeof quickPrompts[0]) => {
-    setQuery(prompt.title);
-    executeAIQuery(prompt.title);
+    setQuery(prompt.title.replace(/[“”]/g, ""));
+    executeAIQuery(prompt.title.replace(/[“”]/g, ""));
   };
 
   const executeAIQuery = async (searchQuery: string) => {
-    if (!searchQuery.trim()) return;
+    if (!searchQuery.trim() || isThinking) return;
 
     setIsThinking(true);
     setActiveResponse(null);
@@ -125,14 +126,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       });
       const data = await res.json();
       
-      if (data.success) {
+      if (data.success && data.data) {
         setActiveResponse(data.data);
       } else {
         setActiveResponse({
-          title: "AI Analysis Error",
+          title: "Command Processing Notice",
           summary: data.message || "Failed to parse command.",
           actionLabel: "Dismiss",
-          details: ["Please check your connection and try again."],
+          details: ["Please check your connection or quota limits and try again."],
         });
       }
     } catch (err) {
@@ -140,7 +141,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         title: "Connection Error",
         summary: "Could not reach the AI Executive Service.",
         actionLabel: "Dismiss",
-        details: ["Make sure the server is running and reachable."],
+        details: ["Make sure the server is reachable and try again."],
       });
     } finally {
       setIsThinking(false);
@@ -153,12 +154,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   };
 
   const handleExecute = async () => {
-    if (!activeResponse) return;
+    if (!activeResponse || isExecuting) return;
     
-    // If no operations, just close and navigate
+    // If completed or no operations, close modal
     if (!activeResponse.operations || activeResponse.operations.length === 0) {
       onClose();
-      if (onNavigate) onNavigate("tasks");
       return;
     }
 
@@ -171,26 +171,39 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       });
       const data = await res.json();
       
-      if (data.success) {
-        // Force the app to re-fetch data so the newly created tasks/goals appear immediately
-        if (typeof window !== 'undefined') {
-          window.location.reload();
-        }
-        
-        setActiveResponse({
-          title: "Execution Successful",
-          summary: "I have successfully applied these changes to your system.",
-          actionLabel: "Done",
-          details: (Array.isArray(activeResponse.operations) ? activeResponse.operations : []).map(op => `Successfully executed: ${op.type}`),
-          operations: [],
-        });
-        queryClient.invalidateQueries();
+      if (data.success && data.results) {
+        // Invalidate all relevant module queries so UI updates instantly
+        queryClient.invalidateQueries({ queryKey: ["tasks"] });
+        queryClient.invalidateQueries({ queryKey: ["calendar"] });
+        queryClient.invalidateQueries({ queryKey: ["goals"] });
+        queryClient.invalidateQueries({ queryKey: ["habits"] });
+        queryClient.invalidateQueries({ queryKey: ["notes"] });
         router.refresh();
+
+        const allSucceeded = data.results.every((r: any) => r.status === "success");
+        const hasRequiresAuth = data.results.some((r: any) => r.status === "requires_auth");
+
+        setActiveResponse({
+          title: allSucceeded ? "Plan Executed Successfully" : (hasRequiresAuth ? "Executed (Authorization Needed)" : "Partial Execution"),
+          summary: allSucceeded
+            ? "All operations were confirmed and persisted across Chronos and connected integrations."
+            : "Some operations completed while others require authorization or adjustments.",
+          actionLabel: "Done",
+          details: data.results.map((r: any) => {
+            const prefix = r.status === "success" ? "[ ✓ ]" : (r.status === "requires_auth" ? "[ ⚠ ]" : "[ ✕ ]");
+            const ext = r.externalSync?.provider
+              ? ` (${r.externalSync.provider}: ${r.externalSync.status})`
+              : "";
+            return `${prefix} ${r.title || r.type}: ${r.message}${ext}`;
+          }),
+          operations: [], // Clear so button changes to Done/Dismiss
+          executionResults: data.results
+        });
       } else {
         setActiveResponse({
           ...activeResponse,
-          title: "Execution Failed",
-          summary: data.message || "Failed to execute operations.",
+          title: "Execution Notice",
+          summary: data.message || "Operations could not be applied.",
           operations: [],
         });
       }
@@ -199,7 +212,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       setActiveResponse({
         ...activeResponse,
         title: "Execution Error",
-        summary: "Could not reach the execution endpoint.",
+        summary: "Network error occurred while calling the execution endpoint.",
         operations: [],
       });
     } finally {
@@ -211,10 +224,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 px-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      {/* Backdrop click to close */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      {/* Modal Box */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: -10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -233,8 +244,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            disabled={isThinking || isExecuting}
             placeholder="What is your focus?"
-            className="w-full bg-transparent text-foreground placeholder:text-foreground/20 font-medium text-xl sm:text-2xl tracking-tight focus:outline-none pl-32 pr-12 py-6 sm:py-8"
+            className="w-full bg-transparent text-foreground placeholder:text-foreground/20 font-medium text-xl sm:text-2xl tracking-tight focus:outline-none pl-32 pr-12 py-6 sm:py-8 disabled:opacity-50"
           />
           {query && (
             <button
@@ -249,71 +261,73 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
         {/* Modal Content Area */}
         <div className="overflow-y-auto flex-1 custom-scrollbar bg-transparent">
-          {/* If thinking */}
+          {/* Thinking State */}
           {isThinking && (
             <div className="py-16 flex flex-col items-center justify-center text-center space-y-6">
               <span className="[&_canvas]:!size-16 relative flex items-center justify-center w-16 h-16 mb-2">
                 <ThinkingOrb state="working" size={64} theme="dark" />
               </span>
               <div className="space-y-2">
-                <p className="text-xs font-bold tracking-[0.2em] uppercase text-foreground">Processing Command</p>
-                <p className="text-[10px] font-mono tracking-wider text-foreground/40 uppercase">Analyzing cognitive load & temporal constraints...</p>
+                <p className="text-xs font-bold tracking-[0.2em] uppercase text-foreground">Formulating Execution Plan</p>
+                <p className="text-[10px] font-mono tracking-wider text-foreground/40 uppercase">Orchestrating temporal constraints &amp; task dependencies...</p>
               </div>
             </div>
           )}
 
-          {/* If Response Ready */}
+          {/* Response Ready State */}
           {!isThinking && activeResponse && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-5 rounded-2xl bg-foreground/5 border border-border space-y-4"
+              className="p-6 sm:p-8 space-y-6 font-mono"
             >
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div className="flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-foreground" />
-                  <h3 className="text-base font-bold text-foreground">{activeResponse.title}</h3>
+                  <Brain className="w-4 h-4 text-foreground" />
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-foreground">{activeResponse.title}</h3>
                 </div>
-                <span className="text-[9px] font-mono uppercase tracking-widest text-foreground/50 border border-white/10 px-3 py-1">
+                <span className="text-[9px] uppercase tracking-widest text-foreground/50 border border-white/10 px-2 py-0.5">
                   AI Directive
                 </span>
               </div>
 
-              <p className="text-lg md:text-xl text-foreground leading-relaxed font-light tracking-tight">
+              <p className="text-sm sm:text-base text-foreground/90 leading-relaxed font-sans font-light">
                 {activeResponse.summary}
               </p>
 
-              <div className="space-y-2 pt-2">
-                <span className="text-[10px] font-mono text-foreground/50 uppercase tracking-widest block mb-4">Execution Protocol:</span>
+              <div className="space-y-3 pt-2">
+                <span className="text-[10px] uppercase tracking-widest text-foreground/50 block">
+                  {activeResponse.executionResults ? "Execution Status Report:" : "Proposed Directives:"}
+                </span>
                 {(Array.isArray(activeResponse.details) ? activeResponse.details : []).map((detail, idx) => (
-                  <div key={idx} className="flex items-start gap-4 text-sm text-foreground/80 py-3 border-b border-white/5">
-                    <CheckCircle2 className="w-4 h-4 text-foreground shrink-0 mt-0.5" />
+                  <div key={idx} className="flex items-start gap-3 text-xs text-foreground/80 py-2.5 border-b border-white/5 font-mono">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-foreground shrink-0 mt-0.5" />
                     <span>{detail}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="pt-3 flex justify-end gap-3">
+              <div className="pt-4 flex justify-end gap-3 font-mono text-[10px] uppercase tracking-widest">
                 <button
                   type="button"
-                  onClick={() => setActiveResponse(null)}
+                  onClick={() => { setActiveResponse(null); setQuery(""); }}
                   disabled={isExecuting}
-                  className="px-4 py-2 rounded-xl bg-foreground/5 hover:bg-foreground/10 text-foreground/70 text-xs font-medium transition-colors disabled:opacity-50"
+                  className="px-4 py-2 border border-white/10 hover:border-white/30 text-foreground/70 transition-colors disabled:opacity-50"
                 >
-                  Back to commands
+                  [ Back ]
                 </button>
                 <button
                   type="button"
                   onClick={handleExecute}
                   disabled={isExecuting}
-                  className="px-5 py-2 rounded-xl bg-foreground text-background font-semibold text-xs border border-border shadow-lg hover:scale-[1.02] transition-transform flex items-center gap-1.5 disabled:opacity-50 disabled:hover:scale-100"
+                  className="px-5 py-2 bg-foreground text-background font-bold border border-foreground hover:bg-background hover:text-foreground transition-all flex items-center gap-2 disabled:opacity-50"
                 >
                   {isExecuting ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <RefreshCw className="w-3 h-3 animate-spin" />
                   ) : (
-                    <span>{activeResponse.actionLabel}</span>
+                    <span>[ {activeResponse.actionLabel} ]</span>
                   )}
-                  {!isExecuting && <ArrowRight className="w-3.5 h-3.5" />}
+                  {!isExecuting && <ArrowRight className="w-3 h-3" />}
                 </button>
               </div>
             </motion.div>
@@ -364,7 +378,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                   System Modules
                 </span>
                 <div className="flex flex-wrap gap-2 sm:gap-4">
-                  {(["dashboard", "tasks", "calendar", "goals"] as TabType[]).map((tab) => (
+                  {(["dashboard", "tasks", "calendar", "goals", "habits", "notes"] as TabType[]).map((tab) => (
                     <button
                       key={tab}
                       type="button"
@@ -384,11 +398,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3 bg-[#0B0910] border-t border-white/10 flex items-center justify-between text-[11px] text-foreground/40 px-5">
+        <div className="p-3 bg-[#070707] border-t border-white/10 flex items-center justify-between text-[10px] font-mono uppercase text-foreground/40 px-6">
           <span className="flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3 text-foreground" /> Powered by Chronos Heuristic AI &amp; Gemini
+            <Sparkles className="w-3 h-3 text-foreground" /> Chronos AI OS &bull; Gemini 3.5 Flash
           </span>
-          <span>Press <strong className="text-foreground/70">ESC</strong> or <strong className="text-foreground/70">⌘K</strong> to close</span>
+          <span>[ ESC ] or [ ⌘K ] to close</span>
         </div>
       </motion.div>
     </div>
